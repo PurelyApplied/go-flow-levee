@@ -37,6 +37,9 @@ func (res SourceMap) add(fn *ssa.Function, sources []*Source) {
 	res[fn] = sources
 }
 
+// MakeReport issues findings as analysis report.
+var MakeReport bool
+
 var Analyzer = &analysis.Analyzer{
 	Name:       "sources",
 	Doc:        "reports attempts to source data to sinks",
@@ -281,6 +284,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		result.add(fn, sources)
 	}
 
+	if MakeReport {
+		for _, srcs := range result {
+			for _, s := range srcs {
+				pass.Reportf(s.Node.Pos(), "source identified")
+
+			}
+		}
+	}
 	return result, nil
 }
 
