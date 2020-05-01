@@ -15,147 +15,21 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
-	"go/types"
-	"io/ioutil"
-	"math"
 	"strings"
-	"sync"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 	"google.com/go-flow-levee/internal/common"
-
-	"github.com/eapache/queue"
+	"google.com/go-flow-levee/internal/sources"
 )
 
-var configFile string
-
 var Analyzer = &analysis.Analyzer{
-	Name:     "levee",
-	Doc:      "reports attempts to source data to sinks",
-	Flags:    common.SharedFlags,
-	Run:      run,
-	Requires: []*analysis.Analyzer{buildssa.Analyzer, common.ConfigLoader},
-}
-
-// source represents a source in an SSA call tree.
-// It is based on ssa.Node, with the added functionality of computing the recursive graph of
-// its referrers.
-// source.sanitized notes sanitizer calls that sanitize this source
-type source struct {
-	node       ssa.Node
-	marked     map[ssa.Node]bool
-	sanitizers []*sanitizer
-}
-
-func newSource(in ssa.Node, config *common.Config) *source {
-	a := &source{
-		node:   in,
-		marked: make(map[ssa.Node]bool),
-	}
-	a.bfs(config)
-	return a
-}
-
-// bfs performs Breadth-First-Search on the def-use graph of the input source.
-// While traversing the graph we also look for potential sanitizers of this source.
-// If the source passes through a sanitizer, bfs does not continue through that Node.
-func (a *source) bfs(config *common.Config) {
-	q := queue.New()
-	q.Add(a.node)
-	a.marked[a.node] = true
-
-	for q.Length() > 0 {
-		e := q.Remove().(ssa.Node)
-
-		if c, ok := e.(*ssa.Call); ok && config.IsSanitizer(c) {
-			a.sanitizers = append(a.sanitizers, &sanitizer{call: c})
-			continue
-		}
-
-		if e.Referrers() == nil {
-			continue
-		}
-
-		for _, r := range *e.Referrers() {
-			if _, ok := a.marked[r.(ssa.Node)]; ok {
-				continue
-			}
-			a.marked[r.(ssa.Node)] = true
-
-			// Need to stay within the scope of the function under analysis.
-			if call, ok := r.(*ssa.Call); ok && !config.IsPropagator(call) {
-				continue
-			}
-
-			// Do not follow innocuous field access (e.g. Cluster.Zone)
-			if addr, ok := r.(*ssa.FieldAddr); ok && !config.IsSourceFieldAddr(addr) {
-				continue
-			}
-
-			q.Add(r)
-		}
-	}
-}
-
-// hasPathTo returns true when a Node is part of declaration-use graph.
-func (a *source) hasPathTo(n ssa.Node) bool {
-	return a.marked[n]
-}
-
-func (a *source) isSanitizedAt(call ssa.Instruction) bool {
-	for _, s := range a.sanitizers {
-		if s.dominates(call) {
-			return true
-		}
-	}
-
-	return false
-}
-
-type sanitizer struct {
-	call *ssa.Call
-}
-
-// dominates returns true if the sanitizer dominates the supplied instruction.
-// In the context of SSA, domination implies that
-// if instructions X executes and X dominates Y, then Y is guaranteed to execute and to be
-// executed after X.
-func (s sanitizer) dominates(target ssa.Instruction) bool {
-	if s.call.Parent() != target.Parent() {
-		// Instructions are in different functions.
-		return false
-	}
-
-	if !s.call.Block().Dominates(target.Block()) {
-		return false
-	}
-
-	if s.call.Block() == target.Block() {
-		parentIdx := math.MaxInt64
-		childIdx := 0
-		for i, instr := range s.call.Block().Instrs {
-			if instr == s.call {
-				parentIdx = i
-			}
-			if instr == target {
-				childIdx = i
-				break
-			}
-		}
-		return parentIdx < childIdx
-	}
-
-	for _, d := range s.call.Block().Dominees() {
-		if target.Block() == d {
-			return true
-		}
-	}
-
-	return false
+	Name:             "levee",
+	Doc:              "reports attempts to source data to sinks",
+	Flags:            common.SharedFlags,
+	Run:              run,
+	Requires:         []*analysis.Analyzer{sources.Analyzer, common.ConfigLoader},
 }
 
 // varargs represents a variable length argument.
@@ -165,17 +39,17 @@ func (s sanitizer) dominates(target ssa.Instruction) bool {
 // get the underlying values of the vararg members is important for this analyzer.
 type varargs struct {
 	slice   *ssa.Slice
-	sources []*source
+	sources []*sources.Source
 }
 
 // newVarargs constructs varargs. SSA represents varargs as an ssa.Slice.
-func newVarargs(s *ssa.Slice, sources []*source) *varargs {
+func newVarargs(s *ssa.Slice, srcs []*sources.Source) *varargs {
 	a, ok := s.X.(*ssa.Alloc)
 	if !ok || a.Comment != "varargs" {
 		return nil
 	}
 	var (
-		referredSources []*source
+		referredSources []*sources.Source
 	)
 
 	for _, r := range *a.Referrers() {
@@ -193,8 +67,8 @@ func newVarargs(s *ssa.Slice, sources []*source) *varargs {
 		// a Store instructions to place a value into the address provided by IndexAddr.
 		store := (*idx.Referrers())[0].(*ssa.Store)
 
-		for _, s := range sources {
-			if s.hasPathTo(store.Val.(ssa.Node)) {
+		for _, s := range srcs {
+			if s.HasPathTo(store.Val.(ssa.Node)) {
 				referredSources = append(referredSources, s)
 				break
 			}
@@ -230,14 +104,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// TODO: respect configuration scope
 
 	conf := pass.ResultOf[common.ConfigLoader].(*common.Config)
-	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
-
-	sourcesMap := identifySources(conf, ssaInput)
+	sourcesMap := pass.ResultOf[sources.Analyzer].(sources.SourceMap)
 
 	// Only examine functions that have sources
-	for fn, sources := range sourcesMap {
-		//log.V(2).Infof("Processing function %v", fn)
-
+	for fn, srcs := range sourcesMap {
 		for _, b := range fn.Blocks {
 			if b == fn.Recover {
 				// TODO Handle calls to sinks in a recovery block.
@@ -245,7 +115,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			}
 
 			for _, instr := range b.Instrs {
-				//log.V(2).Infof("Inst: %v %T", instr, instr)
 				switch v := instr.(type) {
 				case *ssa.Call:
 					switch {
@@ -259,10 +128,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						//  specify the position of the propagated source.
 						// TODO  Consider turning propagators that take io.Writer into sinks.
 						if a := conf.SendsToIOWriter(v); a != nil {
-							sources = append(sources, newSource(a, conf))
+							// TODO, this is a taint, not a source
+							srcs = append(srcs, newTaint(a))
 						} else {
-							//log.V(2).Infof("Adding source: %v %T", v.Value(), v.Value())
-							sources = append(sources, newSource(v, conf))
+							// TODO: this is a taint, not a source
+							srcs = append(srcs, newTaint(a))
 						}
 
 					case conf.IsSink(v):
@@ -270,9 +140,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						if v.Call.Signature().Variadic() && len(v.Call.Args) > 0 {
 							lastArg := v.Call.Args[len(v.Call.Args)-1]
 							if varargs, ok := lastArg.(*ssa.Slice); ok {
-								if sinkVarargs := newVarargs(varargs, sources); sinkVarargs != nil {
+								if sinkVarargs := newVarargs(varargs, srcs); sinkVarargs != nil {
 									for _, s := range sinkVarargs.sources {
-										if !s.isSanitizedAt(v) {
+										if !s.IsSanitizedAt(v) {
 											report(pass, s, v)
 										}
 									}
@@ -288,127 +158,13 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
-var readFileOnce sync.Once
-var readConfigCached *common.Config
-var readConfigCachedErr error
-
-func readConfig(path string) (*common.Config, error) {
-	loadedFromCache := true
-	readFileOnce.Do(func() {
-		loadedFromCache = false
-		c := new(common.Config)
-		bytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			readConfigCachedErr = fmt.Errorf("error reading analysis config: %v", err)
-			return
-		}
-
-		if err := json.Unmarshal(bytes, c); err != nil {
-			readConfigCachedErr = err
-			return
-		}
-		readConfigCached = c
-	})
-	_ = loadedFromCache
-	return readConfigCached, readConfigCachedErr
+func newTaint(in ssa.Node) *sources.Source {
+	return &sources.Source{Node: in}
 }
 
-func identifySources(conf *common.Config, ssaInput *buildssa.SSA) map[*ssa.Function][]*source {
-	sourceMap := make(map[*ssa.Function][]*source)
-
-	for _, fn := range ssaInput.SrcFuncs {
-		var sources []*source
-		sources = append(sources, sourcesFromParams(fn, conf)...)
-		sources = append(sources, sourcesFromClosure(fn, conf)...)
-		sources = append(sources, sourcesFromBlocks(fn, conf)...)
-
-		if len(sources) > 0 {
-			sourceMap[fn] = sources
-		}
-	}
-	return sourceMap
-}
-
-func sourcesFromParams(fn *ssa.Function, conf *common.Config) []*source {
-	var sources []*source
-	for _, p := range fn.Params {
-		switch t := p.Type().(type) {
-		case *types.Pointer:
-			if n, ok := t.Elem().(*types.Named); ok && conf.IsSource(n) {
-				sources = append(sources, newSource(p, conf))
-			}
-			// TODO Handle the case where sources arepassed by value: func(c sourceType)
-			// TODO Handle cases where PII is wrapped in struct/slice/map
-		}
-	}
-	return sources
-}
-
-func sourcesFromClosure(fn *ssa.Function, conf *common.Config) []*source {
-	var sources []*source
-	for _, p := range fn.FreeVars {
-		switch t := p.Type().(type) {
-		case *types.Pointer:
-			// FreeVars (variables from a closure) appear as double-pointers
-			// Hence, the need to dereference them recursively.
-			if s, ok := dereferenceRecursive(t).(*types.Named); ok && conf.IsSource(s) {
-				sources = append(sources, newSource(p, conf))
-			}
-		}
-	}
-	return sources
-}
-
-func sourcesFromBlocks(fn *ssa.Function, conf *common.Config) []*source {
-	var sources []*source
-	for _, b := range fn.Blocks {
-		if b == fn.Recover {
-			// TODO Handle calls to log in a recovery block.
-			continue
-		}
-
-		for _, instr := range b.Instrs {
-			switch v := instr.(type) {
-			// Looking for sources of PII allocated within the body of a function.
-			case *ssa.Alloc:
-				if conf.IsSource(dereferenceRecursive(v.Type())) {
-					sources = append(sources, newSource(v, conf))
-				}
-
-				// Handling the case where PII may be in a receiver
-				// (ex. func(b *something) { log.Info(something.PII) }
-			case *ssa.FieldAddr:
-				if conf.IsSource(dereferenceRecursive(v.Type())) {
-					sources = append(sources, newSource(v, conf))
-				}
-			}
-		}
-	}
-	return sources
-}
-
-func report(pass *analysis.Pass, source *source, sink ssa.Node) {
+func report(pass *analysis.Pass, source *sources.Source, sink ssa.Node) {
 	var b strings.Builder
 	b.WriteString("a source has reached a sink")
-	fmt.Fprintf(&b, ", source: %v", pass.Fset.Position(source.node.Pos()))
+	fmt.Fprintf(&b, ", source: %v", pass.Fset.Position(source.Node.Pos()))
 	pass.Reportf(sink.Pos(), b.String())
-}
-
-func dereferenceRecursive(t types.Type) types.Type {
-	for {
-		tt, ok := t.Underlying().(*types.Pointer)
-		if !ok {
-			return t
-		}
-		t = tt.Elem()
-	}
-}
-
-func isTestPkg(p *types.Package) bool {
-	for _, im := range p.Imports() {
-		if im.Name() == "testing" {
-			return true
-		}
-	}
-	return false
 }
