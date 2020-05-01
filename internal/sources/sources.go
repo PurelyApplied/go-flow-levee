@@ -57,12 +57,23 @@ type Source struct {
 	Node       ssa.Node
 	marked     map[ssa.Node]bool
 	sanitizers []*sanitizer
+	Kind
 }
 
-func newSource(in ssa.Node, config *common.Config) *Source {
+type Kind string
+
+const (
+	freeVarKind Kind = "freeVarKind"
+	paramKind   Kind = "param"
+	fieldAddrKind Kind = "fieldAddr"
+	allocKind Kind = "alloc"
+)
+
+func newSource(in ssa.Node, config *common.Config, kind Kind) *Source {
 	a := &Source{
 		Node:   in,
 		marked: make(map[ssa.Node]bool),
+		Kind: kind,
 	}
 	a.bfs(config)
 	return a
@@ -266,14 +277,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				switch v := instr.(type) {
 				case *ssa.Alloc:
 					if conf.IsSource(common.DereferenceRecursive(v.Type())) {
-						sources = append(sources, newSource(v, conf))
+						sources = append(sources, newSource(v, conf, allocKind))
 					}
 
 					// Handling the case where PII may be in a receiver
 					// (ex. func(b *something) { log.Info(something.PII) }
 				case *ssa.FieldAddr:
 					if conf.IsSource(common.DereferenceRecursive(v.Type())) {
-						sources = append(sources, newSource(v, conf))
+						sources = append(sources, newSource(v, conf, fieldAddrKind))
 					}
 
 				case *ssa.Field:
@@ -287,7 +298,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	if MakeReport {
 		for _, srcs := range result {
 			for _, s := range srcs {
-				pass.Reportf(s.Node.Pos(), "source identified")
+				pass.Reportf(s.Node.Pos(), "source identified: %v", s.Kind)
 
 			}
 		}
@@ -299,7 +310,7 @@ func sourceFromParameter(p *ssa.Parameter, conf *common.Config) (*Source, bool) 
 	// TODO Refine this detection.
 	if t, ok := p.Type().(*types.Pointer); ok {
 		if n, ok := t.Elem().(*types.Named); ok && conf.IsSource(n) {
-			return newSource(p, conf), true
+			return newSource(p, conf, paramKind), true
 		}
 	}
 	return nil, false
@@ -309,7 +320,7 @@ func sourceFromFreeVar(fv *ssa.FreeVar, conf *common.Config) (*Source, bool) {
 	// TODO Refine this detection.
 	if t, ok := fv.Type().(*types.Pointer); ok {
 		if s, ok := common.DereferenceRecursive(t).(*types.Named); ok && conf.IsSource(s) {
-			return newSource(fv, conf), true
+			return newSource(fv, conf, freeVarKind), true
 		}
 	}
 	return nil, false
