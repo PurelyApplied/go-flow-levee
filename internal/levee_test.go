@@ -21,17 +21,17 @@ import (
 )
 
 var patterns = []string{
-	//"example.com/basic",
-	"google3/cloud/kubernetes/tests/proto",
-	"google3/cloud/kubernetes/tests/errors",
-	"google3/cloud/kubernetes/tests/receivers",
-	"google3/cloud/kubernetes/tests/dominance",
-	"google3/cloud/kubernetes/tests/arguments",
-	"google3/cloud/kubernetes/tests/errdesc",
-	"google3/cloud/kubernetes/tests/declarations",
-	"google3/cloud/kubernetes/tests/fields",
-	"google3/cloud/kubernetes/tests/membership",
-	"google3/cloud/kubernetes/tests/sinks",
+	"example.com/basic",
+	//"google3/cloud/kubernetes/tests/proto",
+	//"google3/cloud/kubernetes/tests/errors",
+	//"google3/cloud/kubernetes/tests/receivers",
+	//"google3/cloud/kubernetes/tests/dominance",
+	//"google3/cloud/kubernetes/tests/arguments",
+	//"google3/cloud/kubernetes/tests/errdesc",
+	//"google3/cloud/kubernetes/tests/declarations",
+	//"google3/cloud/kubernetes/tests/fields",
+	//"google3/cloud/kubernetes/tests/membership",
+	//"google3/cloud/kubernetes/tests/sinks",
 }
 
 func TestLevee(t *testing.T) {

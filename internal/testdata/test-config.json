@@ -1,66 +1,21 @@
 {
   "Sources": [
     {
-      "PackageRE": "^google3/cloud/kubernetes/proto/internal_go_proto$|^google3/google/container/(?:v1|v1beta1|v1alpha1)/cluster_service_go_proto$",
-      "TypeRE": "^Cluster$",
-      "FieldRE": "^MasterAuth$"
-    },
-    {
-      "PackageRE": "^google3/cloud/kubernetes/proto/internal_go_proto$|^google3/google/container/(?:v1|v1beta1|v1alpha1)/cluster_service_go_proto$",
-      "TypeRE": "^MasterAuth$",
-      "FieldRE": "^Password$|Key$|Token$"
-    },
-    {
-      "PackageRE": "^google3/google/container/v1/hosted_master_service_go_proto$",
-      "TypeRE": "^AuthenticateRequest$|^AuthenticateResponse$",
-      "FieldRE": "^Spec$"
-    },
-    {
-      "PackageRE": "^google3/google/container/v1/hosted_master_service_go_proto$",
-      "TypeRE": "^TokenReviewSpec$",
-      "FieldRE": "^Token$"
+      "PackageRE": "^example.com/types$",
+      "TypeRE": "^Source$",
+      "FieldRE": "^Data"
     }
   ],
   "Sinks": [
     {
-      "PackageRE": "^fmt$",
-      "MethodRE": "^Errorf$|^F?[pP]rint(?:f|ln)?$"
-    },
-    {
-      "PackageRE": "^google3/base/go/log$",
-      "MethodRE": "Info|Warning|Error|Fatal|Exit"
-    },
-    {
-      "PackageRE": "^google3/cloud/kubernetes/engine/common/errdesc$",
-      "MethodRE": "^WithMsg$"
-    },
-    {
-      "PackageRE": "^google3/util/task/go/status",
-      "FieldRE": "^Error"
+      "PackageRE": "^example.com/types$",
+      "MethodRE": "Sink"
     }
   ],
-  "Sanitizers": [
-  ],
-  "FieldPropagators": [
-    {
-      "Receiver": "google3/cloud/kubernetes/proto/internal_go_proto.Cluster",
-      "AccessorRE": "^GetMasterAuth$"
-    },
-    {
-      "Receiver": "google3/cloud/kubernetes/proto/internal_go_proto.MasterAuth",
-      "AccessorRE": "^Get\\w+"
-    }
-  ],
-  "TransformingPropagators": [
-    {
-      "PackageName": "google3/net/proto2/go/proto",
-      "MethodRE": "^Clone$|^Marshal"
-    }
-  ],
-  "PropagatorArgs": {
-  },
-  "Whitelist": [
-  ],
-  "AnalysisScope": [
-  ]
+  "Sanitizers": [],
+  "FieldPropagators": [],
+  "TransformingPropagators": [],
+  "PropagatorArgs": {},
+  "Whitelist": [],
+  "AnalysisScope": []
 }
