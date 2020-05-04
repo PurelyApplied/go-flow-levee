@@ -25,11 +25,11 @@ import (
 )
 
 var Analyzer = &analysis.Analyzer{
-	Name:             "levee",
-	Doc:              "reports attempts to source data to sinks",
-	Flags:            common.SharedFlags,
-	Run:              run,
-	Requires:         []*analysis.Analyzer{sources.Analyzer, common.ConfigLoader},
+	Name:     "levee",
+	Doc:      "reports attempts to source data to sinks",
+	Flags:    common.SharedFlags,
+	Run:      run,
+	Requires: []*analysis.Analyzer{sources.Analyzer, common.ConfigLoader},
 }
 
 // varargs represents a variable length argument.
