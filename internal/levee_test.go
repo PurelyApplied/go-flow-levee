@@ -14,4 +14,20 @@
 
 package internal
 
-// TODO Some tests should exist.
+import (
+	"testing"
+
+	"golang.org/x/tools/go/analysis/analysistest"
+)
+
+var patterns = []string{
+	"example.com/basic",
+}
+
+func TestLevee(t *testing.T) {
+	dir := analysistest.TestData()
+	if err := Analyzer.Flags.Set("config", dir+"/test-config.json"); err != nil {
+		t.Error(err)
+	}
+	analysistest.Run(t, dir, Analyzer, patterns...)
+}
