@@ -1,19 +1,25 @@
 {
   "Sources": [
     {
-      "PackageRE": "^example.com/types$",
+      "PackageRE": "^example.com/core$",
       "TypeRE": "^Source$",
       "FieldRE": "^Data"
     }
   ],
   "Sinks": [
     {
-      "PackageRE": "^example.com/types$",
+      "PackageRE": "^example.com/core$",
       "MethodRE": "Sink"
     }
   ],
   "Sanitizers": [],
-  "FieldPropagators": [],
+  "FieldPropagators": [
+    {
+      "Receiver": "example.com/core.Source",
+      "AccessorRE": "^GetData$",
+      "TODO": "Make this explicit configuration unnecessary."
+    }
+  ],
   "TransformingPropagators": [],
   "PropagatorArgs": {},
   "Whitelist": [],

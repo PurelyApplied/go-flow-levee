@@ -3,45 +3,45 @@ package sinks
 import (
 	"io"
 
-	"example.com/types"
+	"example.com/core"
 )
 
-func TestSinks(s types.Source, writer io.Writer) {
-	types.Sink(s)                  // want "a source has reached a sink"
-	types.Sinkf("a source: %v", s) // want "a source has reached a sink"
-	types.FSinkf(writer, s)        // want "a source has reached a sink"
-	types.SingleArgSink(s)         // TODO want "a source has reached a sink"
+func TestSinks(s core.Source, writer io.Writer) {
+	core.Sink(s)                  // want "a source has reached a sink"
+	core.Sinkf("a source: %v", s) // want "a source has reached a sink"
+	core.FSinkf(writer, s)        // want "a source has reached a sink"
+	core.SingleArgSink(s)         // TODO want "a source has reached a sink"
 
-	types.Sink([]interface{}{s, s, s}...) // TODO want "a source has reached a sink"
-	types.Sink([]interface{}{s, s, s})    // TODO want "a source has reached a sink"
+	core.Sink([]interface{}{s, s, s}...) // TODO want "a source has reached a sink"
+	core.Sink([]interface{}{s, s, s})    // TODO want "a source has reached a sink"
 }
 
-func TestSinksWithRef(s *types.Source, writer io.Writer) {
-	types.Sink(s)                  // want "a source has reached a sink"
-	types.Sinkf("a source: %v", s) // want "a source has reached a sink"
-	types.FSinkf(writer, s)        // want "a source has reached a sink"
-	types.SingleArgSink(s)         // TODO want "a source has reached a sink"
+func TestSinksWithRef(s *core.Source, writer io.Writer) {
+	core.Sink(s)                  // want "a source has reached a sink"
+	core.Sinkf("a source: %v", s) // want "a source has reached a sink"
+	core.FSinkf(writer, s)        // want "a source has reached a sink"
+	core.SingleArgSink(s)         // TODO want "a source has reached a sink"
 
-	types.Sink([]interface{}{s, s, s}...) // TODO want "a source has reached a sink"
-	types.Sink([]interface{}{s, s, s})    // TODO want "a source has reached a sink"
+	core.Sink([]interface{}{s, s, s}...) // TODO want "a source has reached a sink"
+	core.Sink([]interface{}{s, s, s})    // TODO want "a source has reached a sink"
 }
 
-func TestSinksInnocuous(innoc types.Innocuous, writer io.Writer) {
-	types.Sink(innoc)
-	types.Sinkf("a source: %v", innoc)
-	types.FSinkf(writer, innoc)
-	types.SingleArgSink(innoc)
+func TestSinksInnocuous(innoc core.Innocuous, writer io.Writer) {
+	core.Sink(innoc)
+	core.Sinkf("a source: %v", innoc)
+	core.FSinkf(writer, innoc)
+	core.SingleArgSink(innoc)
 
-	types.Sink([]interface{}{innoc, innoc, innoc}...)
-	types.Sink([]interface{}{innoc, innoc, innoc})
+	core.Sink([]interface{}{innoc, innoc, innoc}...)
+	core.Sink([]interface{}{innoc, innoc, innoc})
 }
 
-func TestSinksWithInnocuousRef(innoc *types.Innocuous, writer io.Writer) {
-	types.Sink(innoc)
-	types.Sinkf("a source: %v", innoc)
-	types.FSinkf(writer, innoc)
-	types.SingleArgSink(innoc)
+func TestSinksWithInnocuousRef(innoc *core.Innocuous, writer io.Writer) {
+	core.Sink(innoc)
+	core.Sinkf("a source: %v", innoc)
+	core.FSinkf(writer, innoc)
+	core.SingleArgSink(innoc)
 
-	types.Sink([]interface{}{innoc, innoc, innoc}...)
-	types.Sink([]interface{}{innoc, innoc, innoc})
+	core.Sink([]interface{}{innoc, innoc, innoc}...)
+	core.Sink([]interface{}{innoc, innoc, innoc})
 }

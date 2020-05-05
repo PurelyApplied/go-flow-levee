@@ -1,4 +1,4 @@
-package types
+package core
 
 import "io"
 
@@ -9,5 +9,3 @@ func Sinkf(format string, args ...interface{}) {}
 func FSinkf(writer io.Writer, args ...interface{}) {}
 
 func SingleArgSink(interface{}) {}
-
-

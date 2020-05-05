@@ -1,4 +1,4 @@
-package types
+package core
 
 // Source will be configured to be detected as a source.
 type Source struct {
@@ -6,25 +6,24 @@ type Source struct {
 	ID   int
 }
 
-func (s Source) getID() int {
+func (s Source) GetID() int {
 	return s.ID
 }
 
-func (s Source) getData() string {
+func (s Source) GetData() string {
 	return s.Data
 }
 
 // Innocuous will _not_ be configured to be a source.
 type Innocuous struct {
 	Data string
-	ID int
+	ID   int
 }
 
-func (i Innocuous) getID() int {
+func (i Innocuous) GetID() int {
 	return i.ID
 }
 
-func (i Innocuous) getData() string {
+func (i Innocuous) GetData() string {
 	return i.Data
 }
-
