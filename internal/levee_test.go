@@ -21,7 +21,8 @@ import (
 )
 
 var patterns = []string{
-	"example.com/basic",
+	"example.com/tests/arguments",
+	"example.com/tests/sinks",
 	//"google3/cloud/kubernetes/tests/proto",
 	//"google3/cloud/kubernetes/tests/errors",
 	//"google3/cloud/kubernetes/tests/receivers",

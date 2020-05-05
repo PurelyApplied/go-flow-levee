@@ -10,7 +10,7 @@ func testSourceFromParamByReference(s *types.Source) {
 }
 
 func testSourceMethodFromParamByReference(s *types.Source) {
-	types.Sink("Source in the parameter %v", s.Data)
+	types.Sink("Source in the parameter %v", s.Data) // want "a source has reached a sink"
 }
 
 func testSourceFromParamByReferenceInfo(s *types.Source) {
