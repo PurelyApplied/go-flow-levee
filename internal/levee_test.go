@@ -21,7 +21,7 @@ import (
 )
 
 var patterns = []string{
-	"example.com/tests/arguments",
+	"example.com/tests", // This change should fail travis.
 	"example.com/tests/declarations",
 	"example.com/tests/dominance",
 	"example.com/tests/fields",
