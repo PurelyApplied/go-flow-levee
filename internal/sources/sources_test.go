@@ -22,7 +22,7 @@ import (
 )
 
 var patterns = []string {
-	"example.com/foo",
+	"example.com/sources",
 }
 
 func init() {

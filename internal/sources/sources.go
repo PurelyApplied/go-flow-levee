@@ -308,10 +308,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 func sourceFromParameter(p *ssa.Parameter, conf *common.Config) (*Source, bool) {
 	// TODO Refine this detection.
-	if t, ok := p.Type().(*types.Pointer); ok {
-		if n, ok := t.Elem().(*types.Named); ok && conf.IsSource(n) {
-			return newSource(p, conf, paramKind), true
-		}
+	deref := common.DereferenceRecursive(p.Type())
+	if n, ok := deref.(*types.Named); ok && conf.IsSource(n) {
+		return newSource(p, conf, paramKind), true
 	}
 	return nil, false
 }
