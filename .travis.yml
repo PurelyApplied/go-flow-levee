@@ -2,4 +2,3 @@ language: golang
 
 go:
 - "1.14"
-- master
