@@ -21,8 +21,8 @@ import (
 )
 
 var patterns = []string{
-	"example.com/tests", // This change should fail travis.
-	"example.com/tests123123",  // additional fail state after .travis.yml update.
+	"example.com/tests/declarations",
+	"example.com/tests/arguments",
 	"example.com/tests/dominance",
 	"example.com/tests/fields",
 	"example.com/tests/receivers",
