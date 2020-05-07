@@ -312,8 +312,11 @@ func (r nameMatcher) matchMethodName(c *ssa.Call) bool {
 		return false
 	}
 
-	return r.matchPackage(c.Call.StaticCallee().Pkg.Pkg) &&
-		r.MethodRE.MatchString(c.Call.StaticCallee().Name())
+	callPkg := c.Call.StaticCallee().Pkg.Pkg
+	matchPackage := r.matchPackage(callPkg)
+	callName := c.Call.StaticCallee().Name()
+	matchName := r.MethodRE.MatchString(callName)
+	return matchPackage && matchName
 }
 
 func (r nameMatcher) matchNamedType(n *types.Named) bool {
@@ -360,14 +363,37 @@ func (a *source) bfs(config *config) {
 	q.Add(a.node)
 	a.marked[a.node] = true
 
+	bleed := make(map[ssa.Node]bool)
+	bleed[a.node] = true
+	prev := -1
+	for prev != len(bleed) {
+		prev = len(bleed)
+		for n := range bleed {
+			referrers := n.Referrers()
+			if referrers != nil {
+				for _, neighs := range *referrers {
+					if neighNode, ok := neighs.(ssa.Node); ok {
+						bleed[neighNode] = true
+					} else {
+						fmt.Println(neighs)
+					}
+				}
+			}
+		}
+	}
 	for q.Length() > 0 {
 		e := q.Remove().(ssa.Node)
 
-		if c, ok := e.(*ssa.Call); ok && config.isSanitizer(c) {
-			a.sanitizers = append(a.sanitizers, &sanitizer.Sanitizer{Call: c})
-			continue
+		if c, ok := e.(*ssa.Call); ok {
+			pkg := c.Call.StaticCallee().Pkg.Pkg
+			name := c.Call.StaticCallee().Name()
+			_ = pkg
+			_ = name
+			if config.isSanitizer(c) {
+				a.sanitizers = append(a.sanitizers, &sanitizer.Sanitizer{Call: c})
+				continue
+			}
 		}
-
 		if e.Referrers() == nil {
 			continue
 		}
@@ -377,11 +403,6 @@ func (a *source) bfs(config *config) {
 				continue
 			}
 			a.marked[r.(ssa.Node)] = true
-
-			// Need to stay within the scope of the function under analysis.
-			if call, ok := r.(*ssa.Call); ok && !config.isPropagator(call) {
-				continue
-			}
 
 			// Do not follow innocuous field access (e.g. Cluster.Zone)
 			if addr, ok := r.(*ssa.FieldAddr); ok && !config.isSourceFieldAddr(addr) {
