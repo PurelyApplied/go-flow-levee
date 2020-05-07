@@ -16,7 +16,6 @@ package sources
 
 import (
 	"go/types"
-	"math"
 	"reflect"
 
 	"golang.org/x/tools/go/analysis"
@@ -125,124 +124,8 @@ func (a *Source) HasPathTo(n ssa.Node) bool {
 	return a.marked[n]
 }
 
-func (a *Source) IsSanitizedAt(call ssa.Instruction) bool {
-	for _, s := range a.sanitizers {
-		if s.dominates(call) {
-			return true
-		}
-	}
-
-	return false
-}
-
 type sanitizer struct {
 	call *ssa.Call
-}
-
-// dominates returns true if the sanitizer dominates the supplied instruction.
-// In the context of SSA, domination implies that
-// if instructions X executes and X dominates Y, then Y is guaranteed to execute and to be
-// executed after X.
-func (s sanitizer) dominates(target ssa.Instruction) bool {
-	if s.call.Parent() != target.Parent() {
-		// Instructions are in different functions.
-		return false
-	}
-
-	if !s.call.Block().Dominates(target.Block()) {
-		return false
-	}
-
-	if s.call.Block() == target.Block() {
-		parentIdx := math.MaxInt64
-		childIdx := 0
-		for i, instr := range s.call.Block().Instrs {
-			if instr == s.call {
-				parentIdx = i
-			}
-			if instr == target {
-				childIdx = i
-				break
-			}
-		}
-		return parentIdx < childIdx
-	}
-
-	for _, d := range s.call.Block().Dominees() {
-		if target.Block() == d {
-			return true
-		}
-	}
-
-	return false
-}
-
-// varargs represents a variable length argument.
-// Concretely, it abstract over the fact that the varargs internally are represented by an ssa.Slice
-// which contains the underlying values of for vararg members.
-// Since many sink functions (ex. log.Info, fmt.Errorf) take a vararg argument, being able to
-// get the underlying values of the vararg members is important for this analyzer.
-type varargs struct {
-	slice   *ssa.Slice
-	sources []*Source
-}
-
-// newVarargs constructs varargs. SSA represents varargs as an ssa.Slice.
-func newVarargs(s *ssa.Slice, sources []*Source) *varargs {
-	a, ok := s.X.(*ssa.Alloc)
-	if !ok || a.Comment != "varargs" {
-		return nil
-	}
-	var (
-		referredSources []*Source
-	)
-
-	for _, r := range *a.Referrers() {
-		idx, ok := r.(*ssa.IndexAddr)
-		if !ok {
-			continue
-		}
-
-		if idx.Referrers() != nil && len(*idx.Referrers()) != 1 {
-			continue
-		}
-
-		// IndexAddr and Store instructions are inherently linked together.
-		// IndexAddr returns an address of an element within a Slice, which is followed by
-		// a Store instructions to place a value into the address provided by IndexAddr.
-		store := (*idx.Referrers())[0].(*ssa.Store)
-
-		for _, s := range sources {
-			if s.HasPathTo(store.Val.(ssa.Node)) {
-				referredSources = append(referredSources, s)
-				break
-			}
-		}
-	}
-
-	return &varargs{
-		slice:   s,
-		sources: referredSources,
-	}
-}
-
-func (v *varargs) referredByCallWithPattern(patterns []common.NameMatcher) *ssa.Call {
-	if v.slice.Referrers() == nil || len(*v.slice.Referrers()) != 1 {
-		return nil
-	}
-
-	c, ok := (*v.slice.Referrers())[0].(*ssa.Call)
-	if !ok || c.Call.StaticCallee() == nil {
-		return nil
-	}
-
-	for _, p := range patterns {
-		if p.MatchMethodName(c) {
-			return c
-		}
-	}
-
-	return nil
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -307,7 +190,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 func sourceFromParameter(p *ssa.Parameter, conf *common.Config) (*Source, bool) {
-	// TODO Refine this detection.
 	deref := common.DereferenceRecursive(p.Type())
 	if n, ok := deref.(*types.Named); ok && conf.IsSource(n) {
 		return newSource(p, conf, paramKind), true
@@ -316,11 +198,9 @@ func sourceFromParameter(p *ssa.Parameter, conf *common.Config) (*Source, bool) 
 }
 
 func sourceFromFreeVar(fv *ssa.FreeVar, conf *common.Config) (*Source, bool) {
-	// TODO Refine this detection.
-	if t, ok := fv.Type().(*types.Pointer); ok {
-		if s, ok := common.DereferenceRecursive(t).(*types.Named); ok && conf.IsSource(s) {
-			return newSource(fv, conf, freeVarKind), true
-		}
+	deref := common.DereferenceRecursive(fv.Type())
+	if n, ok := deref.(*types.Named); ok && conf.IsSource(n) {
+		return newSource(fv, conf, freeVarKind), true
 	}
 	return nil, false
 }

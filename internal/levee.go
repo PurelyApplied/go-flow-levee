@@ -142,9 +142,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 							if varargs, ok := lastArg.(*ssa.Slice); ok {
 								if sinkVarargs := newVarargs(varargs, srcs); sinkVarargs != nil {
 									for _, s := range sinkVarargs.sources {
-										if !s.IsSanitizedAt(v) {
-											report(pass, s, v)
-										}
+										report(pass, s, v)
 									}
 								}
 							}
