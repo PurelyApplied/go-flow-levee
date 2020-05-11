@@ -468,6 +468,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// Only examine functions that have sources
 	for fn, sources := range sourcesMap {
 		for _, b := range fn.Blocks {
+			script := viewScript(b)
+			_ = script
 			if b == fn.Recover {
 				// TODO Handle calls to sinks in a recovery block.
 				continue // skipping Recover since it does not have instructions, rather a single block.
@@ -536,6 +538,7 @@ func expandSources(sourceMap map[*ssa.Function][]*source, conf *config) {
 
 func bleed(root *source, conf *config) []*source {
 	seen := make(map[ssa.Node]bool)
+	var skipped []ssa.Node
 	seen[root.node.(ssa.Node)] = false
 	for count := 0; count != len(seen); {
 		count = len(seen)
@@ -546,12 +549,13 @@ func bleed(root *source, conf *config) []*source {
 				if referrers != nil {
 					for _, ref := range *referrers {
 						switch ref.(type) {
-						case *ssa.Store, *ssa.UnOp, *ssa.MakeInterface, *ssa.MakeClosure:
+						case *ssa.Store, *ssa.MakeInterface, *ssa.UnOp:
 							// Direct assignment of a source is a source
 							seen[ref.(ssa.Node)] = false
-						case *ssa.FieldAddr:
-							// TODO This depends on what field is accessed
+						//case *ssa.FieldAddr:
+						//	TODO This depends on what field is accessed
 						default:
+							skipped = append(skipped, ref.(ssa.Node))
 							fmt.Printf("got %T\n", ref)
 						}
 					}
@@ -691,4 +695,13 @@ func isTestPkg(p *types.Package) bool {
 		}
 	}
 	return false
+}
+
+// This function can be useful in debugging
+func viewScript(blk *ssa.BasicBlock) []string {
+	var script []string
+	for _, instr := range blk.Instrs {
+		script = append(script, fmt.Sprintf("<%T> %v", instr, instr))
+	}
+	return script
 }

@@ -21,12 +21,12 @@ import (
 )
 
 var patterns = []string{
-	"example.com/tests/arguments",
-	"example.com/tests/declarations",
-	"example.com/tests/dominance",
-	"example.com/tests/fields",
-	"example.com/tests/receivers",
-	"example.com/tests/sanitization",
+	//"example.com/tests/arguments",
+	//"example.com/tests/declarations",
+	//"example.com/tests/dominance",
+	//"example.com/tests/fields",
+	//"example.com/tests/receivers",
+	//"example.com/tests/sanitization",
 	"example.com/tests/sinks",
 }
 

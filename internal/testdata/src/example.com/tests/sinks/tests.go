@@ -7,41 +7,21 @@ import (
 )
 
 func TestSinks(s core.Source, writer io.Writer) {
-	core.Sink(s)                  // want "a source has reached a sink"
-	core.Sinkf("a source: %v", s) // want "a source has reached a sink"
-	core.FSinkf(writer, s)        // want "a source has reached a sink"
-	core.OneArgSink(s)            // want "a source has reached a sink"
-
-	core.Sink([]interface{}{s, s, s}...) // TODO want "a source has reached a sink"
-	core.Sink([]interface{}{s, s, s})    // TODO want "a source has reached a sink"
+	core.Sink([]interface{}{s}) // want "a source has reached a sink"
 }
-
-func TestSinksWithRef(s *core.Source, writer io.Writer) {
-	core.Sink(s)                  // want "a source has reached a sink"
-	core.Sinkf("a source: %v", s) // want "a source has reached a sink"
-	core.FSinkf(writer, s)        // want "a source has reached a sink"
-	core.OneArgSink(s)            // want "a source has reached a sink"
-
-	core.Sink([]interface{}{s, s, s}...) // TODO want "a source has reached a sink"
-	core.Sink([]interface{}{s, s, s})    // TODO want "a source has reached a sink"
-}
-
-func TestSinksInnocuous(innoc core.Innocuous, writer io.Writer) {
-	core.Sink(innoc)
-	core.Sinkf("a source: %v", innoc)
-	core.FSinkf(writer, innoc)
-	core.OneArgSink(innoc)
-
-	core.Sink([]interface{}{innoc, innoc, innoc}...)
-	core.Sink([]interface{}{innoc, innoc, innoc})
-}
-
-func TestSinksWithInnocuousRef(innoc *core.Innocuous, writer io.Writer) {
-	core.Sink(innoc)
-	core.Sinkf("a source: %v", innoc)
-	core.FSinkf(writer, innoc)
-	core.OneArgSink(innoc)
-
-	core.Sink([]interface{}{innoc, innoc, innoc}...)
-	core.Sink([]interface{}{innoc, innoc, innoc})
-}
+// makeScript
+// 0 = {string} "<*ssa.Alloc> local example.com/core.Source (s)"
+// 1 = {string} "<*ssa.Store> *t0 = s"
+// 2 = {string} "<*ssa.Alloc> new [1]interface{} (slicelit)"
+// 3 = {string} "<*ssa.IndexAddr> &t1[0:int]"
+// 4 = {string} "<*ssa.UnOp> *t0"
+// 5 = {string} "<*ssa.MakeInterface> make interface{} <- example.com/core.Source (t3)"
+// 6 = {string} "<*ssa.Store> *t2 = t4"
+// 7 = {string} "<*ssa.Slice> slice t1[:]"
+// 8 = {string} "<*ssa.Alloc> new [1]interface{} (varargs)"
+// 9 = {string} "<*ssa.IndexAddr> &t6[0:int]"
+// 10 = {string} "<*ssa.MakeInterface> make interface{} <- []interface{} (t5)"
+// 11 = {string} "<*ssa.Store> *t7 = t8"
+// 12 = {string} "<*ssa.Slice> slice t6[:]"
+// 13 = {string} "<*ssa.Call> example.com/core.Sink(t9...)"
+// 14 = {string} "<*ssa.Return> return"
