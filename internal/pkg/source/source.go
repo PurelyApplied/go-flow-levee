@@ -22,7 +22,7 @@ type Source struct {
 	sanitizers []*sanitizer.Sanitizer
 }
 
-func NewSource(in ssa.Node, config *config.Config) *Source {
+func New(in ssa.Node, config *config.Config) *Source {
 	a := &Source{
 		Node:   in,
 		marked: make(map[ssa.Node]bool),
@@ -155,7 +155,7 @@ func (v *varargs) referredByCallWithPattern(patterns []matcher.NameMatcher) *ssa
 	return nil
 }
 
-func IdentifySources(conf *config.Config, ssaInput *buildssa.SSA) map[*ssa.Function][]*Source {
+func Identify(conf *config.Config, ssaInput *buildssa.SSA) map[*ssa.Function][]*Source {
 	sourceMap := make(map[*ssa.Function][]*Source)
 
 	for _, fn := range ssaInput.SrcFuncs {
@@ -177,7 +177,7 @@ func sourcesFromParams(fn *ssa.Function, conf *config.Config) []*Source {
 		switch t := p.Type().(type) {
 		case *types.Pointer:
 			if n, ok := t.Elem().(*types.Named); ok && conf.IsSource(n) {
-				sources = append(sources, NewSource(p, conf))
+				sources = append(sources, New(p, conf))
 			}
 			// TODO Handle the case where sources arepassed by value: func(c sourceType)
 			// TODO Handle cases where PII is wrapped in struct/slice/map
@@ -194,7 +194,7 @@ func sourcesFromClosure(fn *ssa.Function, conf *config.Config) []*Source {
 			// FreeVars (variables from a closure) appear as double-pointers
 			// Hence, the need to dereference them recursively.
 			if s, ok := utils.Dereference(t).(*types.Named); ok && conf.IsSource(s) {
-				sources = append(sources, NewSource(p, conf))
+				sources = append(sources, New(p, conf))
 			}
 		}
 	}
@@ -214,14 +214,14 @@ func sourcesFromBlocks(fn *ssa.Function, conf *config.Config) []*Source {
 			// Looking for sources of PII allocated within the body of a function.
 			case *ssa.Alloc:
 				if conf.IsSource(utils.Dereference(v.Type())) {
-					sources = append(sources, NewSource(v, conf))
+					sources = append(sources, New(v, conf))
 				}
 
 				// Handling the case where PII may be in a receiver
 				// (ex. func(b *something) { log.Info(something.PII) }
 			case *ssa.FieldAddr:
 				if conf.IsSource(utils.Dereference(v.Type())) {
-					sources = append(sources, NewSource(v, conf))
+					sources = append(sources, New(v, conf))
 				}
 			}
 		}

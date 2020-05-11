@@ -47,7 +47,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 
-	sourcesMap := source.IdentifySources(conf, ssaInput)
+	sourcesMap := source.Identify(conf, ssaInput)
 
 	// Only examine functions that have sources
 	for fn, sources := range sourcesMap {
@@ -74,10 +74,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						//  specify the position of the propagated source.
 						// TODO  Consider turning propagators that take io.Writer into sinks.
 						if a := conf.SendsToIOWriter(v); a != nil {
-							sources = append(sources, source.NewSource(a, conf))
+							sources = append(sources, source.New(a, conf))
 						} else {
 							//log.V(2).Infof("Adding source: %v %T", v.Value(), v.Value())
-							sources = append(sources, source.NewSource(v, conf))
+							sources = append(sources, source.New(v, conf))
 						}
 
 					case conf.IsSink(v):
