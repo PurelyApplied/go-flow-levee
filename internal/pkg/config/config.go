@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"golang.org/x/tools/go/ssa"
-	"google.com/go-flow-levee/internal/pkg/common"
+	"google.com/go-flow-levee/internal/pkg/utils"
 	"google.com/go-flow-levee/internal/pkg/matcher"
 )
 
@@ -29,7 +29,7 @@ type Config struct {
 // whose containing package imports "testing"
 // or whose containing package does not import any package containing a source or a sink.
 func (c Config) shouldSkip(pkg *types.Package) bool {
-	if common.IsTestPkg(pkg) || !c.isInScope(pkg) || c.isWhitelisted(pkg) {
+	if utils.IsTestPkg(pkg) || !c.isInScope(pkg) || c.isWhitelisted(pkg) {
 		return true
 	}
 
@@ -89,7 +89,7 @@ func (c Config) IsSourceFieldAddr(fa *ssa.FieldAddr) bool {
 	// fa.Type() refers to the accessed field's type.
 	// fa.X.Type() refers to the surrounding struct's type.
 
-	deref := common.DereferenceRecursive(fa.X.Type())
+	deref := utils.DereferenceRecursive(fa.X.Type())
 	st, ok := deref.Underlying().(*types.Struct)
 	if !ok {
 		return false
@@ -134,11 +134,11 @@ func (c Config) isTransformingPropagator(call *ssa.Call) bool {
 			// TODO Handle ChangeInterface case.
 			switch t := a.(type) {
 			case *ssa.MakeInterface:
-				if c.IsSource(common.DereferenceRecursive(t.X.Type())) {
+				if c.IsSource(utils.DereferenceRecursive(t.X.Type())) {
 					return true
 				}
 			case *ssa.Parameter:
-				if c.IsSource(common.DereferenceRecursive(t.Type())) {
+				if c.IsSource(utils.DereferenceRecursive(t.Type())) {
 					return true
 				}
 			}

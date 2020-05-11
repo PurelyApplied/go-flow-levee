@@ -4,7 +4,7 @@ import (
 	"go/types"
 
 	"golang.org/x/tools/go/ssa"
-	"google.com/go-flow-levee/internal/pkg/common"
+	"google.com/go-flow-levee/internal/pkg/utils"
 	"google.com/go-flow-levee/internal/pkg/config/regexp"
 )
 
@@ -41,7 +41,7 @@ func (f FieldPropagatorMatcher) Match(call *ssa.Call) bool {
 		return false
 	}
 
-	if f.Receiver != common.DereferenceRecursive(recv.Type()).String() {
+	if f.Receiver != utils.DereferenceRecursive(recv.Type()).String() {
 		return false
 	}
 
