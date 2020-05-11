@@ -463,11 +463,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 
 	sourcesMap := identifySources(conf, ssaInput)
+	expandSources(sourcesMap, conf)
 
 	// Only examine functions that have sources
 	for fn, sources := range sourcesMap {
-		//log.V(2).Infof("Processing function %v", fn)
-
 		for _, b := range fn.Blocks {
 			if b == fn.Recover {
 				// TODO Handle calls to sinks in a recovery block.
@@ -496,15 +495,24 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						}
 
 					case conf.isSink(v):
-						// TODO Only variadic sink arguments are currently detected.
-						if v.Call.Signature().Variadic() && len(v.Call.Args) > 0 {
-							lastArg := v.Call.Args[len(v.Call.Args)-1]
-							if varargs, ok := lastArg.(*ssa.Slice); ok {
-								if sinkVarargs := newVarargs(varargs, sources); sinkVarargs != nil {
-									for _, s := range sinkVarargs.sources {
-										if !s.isSanitizedAt(v) {
-											report(pass, s, v)
-										}
+						// Examine each argument.
+						cc := v.Common()
+						for _, a := range cc.Args {
+							allSources := sourcesMap[fn]
+							for _, s := range allSources {
+								if val, ok := s.node.(ssa.Value); ok && a == val {
+									report(pass, s, v)
+								}
+							}
+						}
+
+						// If the last argument is a slice, it might be a varargs call
+						lastArg := v.Call.Args[len(v.Call.Args)-1]
+						if varargs, ok := lastArg.(*ssa.Slice); ok {
+							if sinkVarargs := newVarargs(varargs, sources); sinkVarargs != nil {
+								for _, s := range sinkVarargs.sources {
+									if !s.isSanitizedAt(v) {
+										report(pass, s, v)
 									}
 								}
 							}
@@ -517,6 +525,48 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	return nil, nil
 }
+
+func expandSources(sourceMap map[*ssa.Function][]*source, conf *config) {
+	for fn := range sourceMap {
+		for _, source := range sourceMap[fn] {
+			sourceMap[fn] = append(sourceMap[fn], bleed(source, conf)...)
+		}
+	}
+}
+
+func bleed(root *source, conf *config) []*source {
+	seen := make(map[ssa.Node]bool)
+	seen[root.node.(ssa.Node)] = false
+	for count := 0; count != len(seen); {
+		count = len(seen)
+		for s, done := range seen {
+			if !done {
+				seen[s] = true
+				referrers := s.Referrers()
+				if referrers != nil {
+					for _, ref := range *referrers {
+						switch ref.(type) {
+						case *ssa.Store, *ssa.UnOp, *ssa.MakeInterface, *ssa.MakeClosure:
+							// Direct assignment of a source is a source
+							seen[ref.(ssa.Node)] = false
+						case *ssa.FieldAddr:
+							// TODO This depends on what field is accessed
+						default:
+							fmt.Printf("got %T\n", ref)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	var slice []*source
+	for s := range seen {
+		slice = append(slice, newSource(s, conf))
+	}
+	return slice
+}
+
 
 var readFileOnce sync.Once
 var readConfigCached *config
