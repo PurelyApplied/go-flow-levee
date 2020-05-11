@@ -193,7 +193,7 @@ func sourcesFromClosure(fn *ssa.Function, conf *config.Config) []*Source {
 		case *types.Pointer:
 			// FreeVars (variables from a closure) appear as double-pointers
 			// Hence, the need to dereference them recursively.
-			if s, ok := utils.DereferenceRecursive(t).(*types.Named); ok && conf.IsSource(s) {
+			if s, ok := utils.Dereference(t).(*types.Named); ok && conf.IsSource(s) {
 				sources = append(sources, NewSource(p, conf))
 			}
 		}
@@ -213,14 +213,14 @@ func sourcesFromBlocks(fn *ssa.Function, conf *config.Config) []*Source {
 			switch v := instr.(type) {
 			// Looking for sources of PII allocated within the body of a function.
 			case *ssa.Alloc:
-				if conf.IsSource(utils.DereferenceRecursive(v.Type())) {
+				if conf.IsSource(utils.Dereference(v.Type())) {
 					sources = append(sources, NewSource(v, conf))
 				}
 
 				// Handling the case where PII may be in a receiver
 				// (ex. func(b *something) { log.Info(something.PII) }
 			case *ssa.FieldAddr:
-				if conf.IsSource(utils.DereferenceRecursive(v.Type())) {
+				if conf.IsSource(utils.Dereference(v.Type())) {
 					sources = append(sources, NewSource(v, conf))
 				}
 			}

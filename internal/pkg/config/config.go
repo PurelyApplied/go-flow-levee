@@ -89,7 +89,7 @@ func (c Config) IsSourceFieldAddr(fa *ssa.FieldAddr) bool {
 	// fa.Type() refers to the accessed field's type.
 	// fa.X.Type() refers to the surrounding struct's type.
 
-	deref := utils.DereferenceRecursive(fa.X.Type())
+	deref := utils.Dereference(fa.X.Type())
 	st, ok := deref.Underlying().(*types.Struct)
 	if !ok {
 		return false
@@ -134,11 +134,11 @@ func (c Config) isTransformingPropagator(call *ssa.Call) bool {
 			// TODO Handle ChangeInterface case.
 			switch t := a.(type) {
 			case *ssa.MakeInterface:
-				if c.IsSource(utils.DereferenceRecursive(t.X.Type())) {
+				if c.IsSource(utils.Dereference(t.X.Type())) {
 					return true
 				}
 			case *ssa.Parameter:
-				if c.IsSource(utils.DereferenceRecursive(t.Type())) {
+				if c.IsSource(utils.Dereference(t.Type())) {
 					return true
 				}
 			}

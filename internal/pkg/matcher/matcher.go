@@ -41,7 +41,7 @@ func (f FieldPropagatorMatcher) Match(call *ssa.Call) bool {
 		return false
 	}
 
-	if f.Receiver != utils.DereferenceRecursive(recv.Type()).String() {
+	if f.Receiver != utils.Dereference(recv.Type()).String() {
 		return false
 	}
 
