@@ -6,10 +6,10 @@ import (
 	"github.com/eapache/queue"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
-	"google.com/go-flow-levee/internal/pkg/utils"
 	"google.com/go-flow-levee/internal/pkg/config"
 	"google.com/go-flow-levee/internal/pkg/matcher"
 	"google.com/go-flow-levee/internal/pkg/sanitizer"
+	"google.com/go-flow-levee/internal/pkg/utils"
 )
 
 // source represents a source in an SSA call tree.
@@ -228,4 +228,3 @@ func sourcesFromBlocks(fn *ssa.Function, conf *config.Config) []*Source {
 	}
 	return sources
 }
-

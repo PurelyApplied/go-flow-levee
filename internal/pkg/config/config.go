@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"golang.org/x/tools/go/ssa"
-	"google.com/go-flow-levee/internal/pkg/utils"
 	"google.com/go-flow-levee/internal/pkg/matcher"
+	"google.com/go-flow-levee/internal/pkg/utils"
 )
 
 // config contains matchers and analysis scope information
@@ -98,7 +98,7 @@ func (c Config) IsSourceFieldAddr(fa *ssa.FieldAddr) bool {
 
 	for _, p := range c.Sources {
 		if n, ok := deref.(*types.Named); ok &&
-				p.Match(n) && p.FieldRE.MatchString(fieldName) {
+			p.Match(n) && p.FieldRE.MatchString(fieldName) {
 			return true
 		}
 	}
@@ -205,4 +205,3 @@ func ReadConfig(path string) (*Config, error) {
 	_ = loadedFromCache
 	return readConfigCached, readConfigCachedErr
 }
-
