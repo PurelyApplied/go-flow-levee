@@ -16,9 +16,12 @@
 package source
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/eapache/queue"
+	"github.com/google/go-flow-levee/internal/pkg/sanitizer"
 	"golang.org/x/tools/go/ssa"
-	"google.com/go-flow-levee/internal/pkg/sanitizer"
 )
 
 type classifier interface {
@@ -65,11 +68,6 @@ func (a *Source) bfs() {
 	for q.Length() > 0 {
 		e := q.Remove().(ssa.Node)
 
-		if c, ok := e.(*ssa.Call); ok && a.config.IsSanitizer(c) {
-			a.sanitizers = append(a.sanitizers, &sanitizer.Sanitizer{Call: c})
-			continue
-		}
-
 		if e.Referrers() == nil {
 			continue
 		}
@@ -78,7 +76,11 @@ func (a *Source) bfs() {
 			if _, ok := a.marked[r.(ssa.Node)]; ok {
 				continue
 			}
-			a.marked[r.(ssa.Node)] = true
+
+			if c, ok := r.(*ssa.Call); ok && a.config.IsSanitizer(c) {
+				a.sanitizers = append(a.sanitizers, &sanitizer.Sanitizer{Call: c})
+				continue
+			}
 
 			// Need to stay within the scope of the function under analysis.
 			if call, ok := r.(*ssa.Call); ok && !a.config.IsPropagator(call) {
@@ -90,6 +92,7 @@ func (a *Source) bfs() {
 				continue
 			}
 
+			a.marked[r.(ssa.Node)] = true
 			q.Add(r)
 		}
 	}
@@ -109,4 +112,27 @@ func (a *Source) IsSanitizedAt(call ssa.Instruction) bool {
 	}
 
 	return false
+}
+
+// String implements Stringer interface.
+func (a *Source) String() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%v\n", a.node.String())
+
+	fmt.Fprint(&b, "Connections:\n")
+	for k := range a.marked {
+		fmt.Fprintf(&b, "\t%v : %T\n", k.String(), k)
+	}
+
+	fmt.Fprint(&b, "Referrers:\n")
+	for _, k := range *a.node.Referrers() {
+		fmt.Fprintf(&b, "\t%v : %T\n", k.String(), k)
+	}
+
+	fmt.Fprint(&b, "Sanitizers:\n")
+	for _, k := range a.sanitizers {
+		fmt.Fprintf(&b, "\t%v : %T\n", k.Call, k)
+	}
+
+	return b.String()
 }
