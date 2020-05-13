@@ -23,15 +23,15 @@ type foo struct {
 }
 
 func f1() {
-	foo := &foo{name: "bar"}
+	f := &foo{name: "bar"}
 
-	// Since foo will exit ths scope of f1, log will not be added to the graph of foo.
+	// Since f will exit ths scope of f1, log will not be added to the graph of f.
 	// Expected graph:
 	// new foo (complit) : *ssa.Alloc
 	// &t0.name [#0] : *ssa.FieldAddr
 	// *t1 = "bar":string : *ssa.Store
 
-	log(foo)
+	log(f)
 }
 
 func log(in *foo) {

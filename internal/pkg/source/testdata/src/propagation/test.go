@@ -21,8 +21,8 @@ type foo struct {
 }
 
 func f1() {
-	foo := &foo{name: "bar"}
-	transformedFoo := propagator(foo)
+	f := &foo{name: "bar"}
+	transformedFoo := propagator(f)
 	fmt.Println(transformedFoo)
 }
 

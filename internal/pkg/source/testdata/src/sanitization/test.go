@@ -22,9 +22,9 @@ type foo struct {
 }
 
 func f1() {
-	foo := &foo{name: "n", password: "p"}
-	sanitizer(foo)
-	fmt.Println(foo)
+	f := &foo{name: "n", password: "p"}
+	sanitizer(f)
+	fmt.Println(f)
 }
 
 func sanitizer(in *foo) {
