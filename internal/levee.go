@@ -382,20 +382,30 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 
 	sourcesMap := identifySources(conf, ssaInput)
-
-	// Only examine functions that have sources
 	for fn, sources := range sourcesMap {
-		//log.V(2).Infof("Processing function %v", fn)
-
+		r, o := utils.GetLinks(fn)
+		_ = r
+		_ = o
+		fnscript := utils.FunctionToInstrStrings(fn, pass.Fset)
+		_ = fnscript
 		for _, b := range fn.Blocks {
 			if b == fn.Recover {
 				// TODO Handle calls to sinks in a recovery block.
 				continue // skipping Recover since it does not have instructions, rather a single block.
 			}
 
-			for _, instr := range b.Instrs {
-				//log.V(2).Infof("Inst: %v %T", instr, instr)
+			for i, instr := range b.Instrs {
+				_ = i
+				bloody := bleed(sources[0])
+				touch := bloody[instr.(ssa.Node)]
+				ops := foo(instr)
+				_ = touch
+				_ = ops
 				switch v := instr.(type) {
+				case *ssa.Store:
+				if touch {
+					sources = append(sources, source.New(v, conf))
+				}
 				case *ssa.Call:
 					switch {
 					case conf.IsPropagator(v):
@@ -418,6 +428,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						// TODO Only variadic sink arguments are currently detected.
 						if v.Call.Signature().Variadic() && len(v.Call.Args) > 0 {
 							lastArg := v.Call.Args[len(v.Call.Args)-1]
+							ref := r[lastArg.(ssa.Node)]
+							ops := o[lastArg.(ssa.Node)]
+							_ = ops
+							invOp := utils.OperandsInverse(lastArg.(ssa.Node), o)
+							_ = ref
+							_ = invOp
+							neigh := utils.OperandsOfReferrers(lastArg.(ssa.Node), r, o)
+							_ = neigh
 							if varargs, ok := lastArg.(*ssa.Slice); ok {
 								if sinkVarargs := newVarargs(varargs, sources); sinkVarargs != nil {
 									for _, s := range sinkVarargs.sources {
@@ -435,6 +453,12 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	return nil, nil
+}
+
+func foo(instr ssa.Instruction) []*ssa.Value {
+	var buf [10]*ssa.Value
+	ops := instr.Operands(buf[:0])
+	return ops
 }
 
 var readFileOnce sync.Once
@@ -546,6 +570,47 @@ func report(pass *analysis.Pass, source *source.Source, sink ssa.Node) {
 func isTestPkg(p *types.Package) bool {
 	for _, im := range p.Imports() {
 		if im.Name() == "testing" {
+			return true
+		}
+	}
+	return false
+}
+
+
+func bleed(root *source.Source) map[ssa.Node]bool {
+	seen := make(map[ssa.Node]bool)
+	seen[root.Node()] = false
+
+	for count := 0; count != len(seen); {
+		count = len(seen)
+		for s, done := range seen {
+			if !done {
+				seen[s] = true
+				referrers := s.Referrers()
+				if referrers != nil {
+					for _, ref := range *referrers {
+						switch ref.(type) {
+						case *ssa.Store, *ssa.UnOp, *ssa.MakeInterface, *ssa.MakeClosure:
+							// Direct assignment of a source is a source
+							seen[ref.(ssa.Node)] = false
+						case *ssa.FieldAddr:
+							// TODO This depends on what field is accessed
+						default:
+							fmt.Printf("got %T\n", ref)
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	return seen
+}
+
+func contains(srcs []*source.Source, s *source.Source) bool {
+	for _, src := range srcs {
+		if s == src {
 			return true
 		}
 	}

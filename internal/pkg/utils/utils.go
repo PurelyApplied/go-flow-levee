@@ -16,6 +16,8 @@
 package utils
 
 import (
+	"fmt"
+	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/ssa"
 )
@@ -43,4 +45,21 @@ func FieldName(fa *ssa.FieldAddr) string {
 		return ""
 	}
 	return st.Field(fa.Field).Name()
+}
+
+func BlockToInstrString(b *ssa.BasicBlock, fset *token.FileSet) []string {
+
+	var s []string
+	for _, instr := range b.Instrs {
+		s = append(s, fmt.Sprintf("%v (%T @ %v -> %v)", instr, instr, instr.Pos(), fset.Position(instr.Pos())))
+	}
+	return s
+}
+
+func FunctionToInstrStrings(fn *ssa.Function, fset *token.FileSet) [][]string {
+	var s [][]string
+	for _, b := range fn.Blocks {
+		s = append(s, BlockToInstrString(b, fset))
+	}
+	return s
 }
