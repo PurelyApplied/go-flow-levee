@@ -12,28 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package skipped
 
-import (
-	"testing"
+import "example.com/core"
 
-	"golang.org/x/tools/go/analysis/analysistest"
-)
-
-var patterns = []string{
-	"example.com/tests/arguments",
-	"example.com/tests/declarations",
-	"example.com/tests/dominance",
-	"example.com/tests/fields",
-	"example.com/tests/receivers",
-	"example.com/tests/sinks",
-	"outofscope.io/tests/skipped",
+// This test will *not* report, since this package is out of scope.
+func TestSourceMethodFromParamByReference(s *core.Source) {
+	core.Sink("Source in the parameter %v", s.Data)
 }
 
-func TestLevee(t *testing.T) {
-	dir := analysistest.TestData()
-	if err := Analyzer.Flags.Set("config", dir+"/test-config.json"); err != nil {
-		t.Error(err)
-	}
-	analysistest.Run(t, dir, Analyzer, patterns...)
-}

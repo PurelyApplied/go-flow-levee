@@ -29,5 +29,9 @@
   ],
   "PropagatorArgs": {},
   "Whitelist": [],
-  "AnalysisScope": []
+  "AnalysisScope": [
+    {
+      "PackageNameRE": "^example.com"
+    }
+  ]
 }

@@ -109,7 +109,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: respect configuration scope
+
+	if conf.ShouldSkip(pass.Pkg) {
+		return nil, nil
+	}
 
 	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 

@@ -38,7 +38,7 @@ type Config struct {
 // that is whitelisted,
 // whose containing package imports "testing"
 // or whose containing package does not import any package containing a source or a sink.
-func (c Config) shouldSkip(pkg *types.Package) bool {
+func (c Config) ShouldSkip(pkg *types.Package) bool {
 	if isTestPkg(pkg) || !c.isInScope(pkg) || c.isWhitelisted(pkg) {
 		return true
 	}
