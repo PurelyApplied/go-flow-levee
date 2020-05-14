@@ -28,7 +28,11 @@
   "TransformingPropagators": [
   ],
   "PropagatorArgs": {},
-  "Whitelist": [],
+  "Whitelist": [
+    {
+      "PackageNameRE": "^example.com/whitelisted"
+    }
+  ],
   "AnalysisScope": [
     {
       "PackageNameRE": "^example.com"
