@@ -14,12 +14,12 @@
 
 package sourcetype
 
-type Source struct { // want "source type declaration identified"
+type Source struct { // want Source:"source type declaration"
 	Data string // want "source field declaration identified"
 	ID   int
 }
 
-type AliasStruct = Source // want "source type declaration identified"
+type AliasStruct = Source // want AliasStruct:"source type declaration"
 
 // TODO Consider automatic detection of the following types.
 type NamedType Source

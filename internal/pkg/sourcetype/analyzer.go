@@ -15,7 +15,9 @@
 package sourcetype
 
 import (
+	"fmt"
 	"go/types"
+	"reflect"
 
 	"github.com/google/go-flow-levee/internal/pkg/config"
 	"golang.org/x/tools/go/analysis"
@@ -30,11 +32,34 @@ type sourceClassifier struct {
 
 	// sources maps the source type to its respective source fields.
 	sources map[types.Type][]*types.Var
+
+	facts []*DeclarationFact
+}
+
+func (sc *sourceClassifier) ExportFacts(pass *analysis.Pass) {
+	for _, f := range sc.facts {
+		pass.ExportObjectFact(f.Object, f)
+	}
+}
+
+func (sc *sourceClassifier) IsSource(t types.Type) bool {
+	_, contained := sc.sources[t]
+	return contained
+}
+
+func (sc *sourceClassifier) IsSourceField(t types.Type, f *types.Var) bool {
+	for _, fld := range sc.sources[t] {
+		if fld == f {
+			return true
+		}
+	}
+	return false
 }
 
 func (sc *sourceClassifier) add(ssaType *ssa.Type, sourceFields []*types.Var) {
 	sc.ssaTypes[ssaType] = ssaType.Type()
 	sc.sources[ssaType.Type()] = sourceFields
+	sc.facts = append(sc.facts, &DeclarationFact{ssaType.Object()})
 }
 
 func (sc *sourceClassifier) makeReport(pass *analysis.Pass) {
@@ -42,12 +67,17 @@ func (sc *sourceClassifier) makeReport(pass *analysis.Pass) {
 	// Don't report the same underlying types.Type more than once.
 	alreadyReported := make(map[types.Type]bool)
 
-	for ssaType, typ := range sc.ssaTypes {
-		pass.Reportf(ssaType.Pos(), "source type declaration identified: %v", typ)
+	sc.ExportFacts(pass)
+
+	for _, typ := range sc.ssaTypes {
 		if !alreadyReported[typ] {
 			alreadyReported[typ] = true
 			for _, f := range sc.sources[typ] {
-				pass.Reportf(f.Pos(), "source field declaration identified: %v", f)
+				// Only report on your pass's package to avoid multiple reportings of cross-package alias or named types
+				if f.Pkg() != pass.Pkg {
+					continue
+				}
+				pass.Reportf(f.Pos(), "source field declaration identified: %v (from %v)", f, pass.Pkg)
 			}
 
 		}
@@ -61,12 +91,25 @@ func newSourceClassifier() *sourceClassifier {
 	}
 }
 
+// DeclarationFact tracks source type declarations across package boundaries.
+type DeclarationFact struct {
+	types.Object
+}
+
+func (s DeclarationFact) String() string {
+	return fmt.Sprintf("source type declaration: %v", s.Object)
+}
+
+func (s DeclarationFact) AFact() {}
+
 var Analyzer = &analysis.Analyzer{
-	Name:     "sourcetypes",
-	Doc:      "This analyzer identifies types.Types values which contain dataflow sources.",
-	Flags:    config.FlagSet,
-	Requires: []*analysis.Analyzer{buildssa.Analyzer},
-	Run:      run,
+	Name:       "sourcetypes",
+	Doc:        "This analyzer identifies types.Types values which contain dataflow sources.",
+	Flags:      config.FlagSet,
+	Run:        run,
+	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
+	ResultType: reflect.TypeOf(new(sourceClassifier)),
+	FactTypes:  []analysis.Fact{new(DeclarationFact)},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -82,7 +125,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		if ssaType, ok := mem.(*ssa.Type); ok {
 			if conf.IsSource(ssaType.Type()) {
 				var sourceFields []*types.Var
-				// If the mamber names a struct declaration, examine the fields for additional tagging.
+				// If the member names a struct declaration, examine the fields for additional tagging.
 				if under, ok := ssaType.Type().Underlying().(*types.Struct); ok {
 					for i := 0; i < under.NumFields(); i++ {
 						fld := under.Field(i)
@@ -97,7 +140,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 	}
 
-	sc.makeReport(pass)
+	if config.Reporting.Has("sourcetype") {
+		sc.makeReport(pass)
+	}
 
-	return nil, nil
+	return sc, nil
 }

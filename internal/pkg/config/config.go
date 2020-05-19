@@ -24,15 +24,38 @@ import (
 
 	"github.com/google/go-flow-levee/internal/pkg/config/regexp"
 	"github.com/google/go-flow-levee/internal/pkg/utils"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
+
+type ReportFlag []string
+
+func (r ReportFlag) String() string {
+	return fmt.Sprintf("%v", []string(r))
+}
+
+func (r *ReportFlag) Set(arg string) error {
+	*r = append(*r, arg)
+	return nil
+}
+
+func (r ReportFlag) Has(arg string) bool {
+	for _, rep := range r {
+		if rep == arg {
+			return true
+		}
+	}
+	return false
+}
 
 // FlagSet should be used by analyzers to reuse -config flag.
 var FlagSet flag.FlagSet
 var configFile string
+var Reporting ReportFlag
 
 func init() {
 	FlagSet.StringVar(&configFile, "config", "config.json", "path to analysis configuration file")
+	FlagSet.Var(&Reporting, "report", "which analyzer steps should report findings.")
 }
 
 // config contains matchers and analysis scope information
@@ -341,4 +364,17 @@ func isTestPkg(p *types.Package) bool {
 		}
 	}
 	return false
+}
+
+type SourceTypeClassifier interface {
+	IsSource(types.Type) bool
+	IsSourceField(types.Type, *types.Var) bool
+	ExportFacts(*analysis.Pass)
+}
+
+type Classifier interface {
+	IsSource(types.Type) bool
+	IsSanitizer(*ssa.Call) bool
+	IsPropagator(*ssa.Call) bool
+	IsSourceFieldAddr(*ssa.FieldAddr) bool
 }

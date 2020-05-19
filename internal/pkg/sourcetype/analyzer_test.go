@@ -28,5 +28,10 @@ func TestSourceAnalysis(t *testing.T) {
 		return
 	}
 
-	analysistest.Run(t, testdata, Analyzer, "sourcetype")
+	if err := Analyzer.Flags.Set("report", "sourcetype"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	analysistest.Run(t, testdata, Analyzer, "sourcetype", "crosspkg")
 }

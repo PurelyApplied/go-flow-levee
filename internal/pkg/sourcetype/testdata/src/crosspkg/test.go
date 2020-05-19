@@ -12,27 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package crosspkg
 
-import (
-	"testing"
+import "sourcetype"
 
-	"golang.org/x/tools/go/analysis/analysistest"
-)
+type AliasStruct = sourcetype.Source // want AliasStruct:"source type declaration"
 
-func TestSourceAnalysis(t *testing.T) {
-	testdata := analysistest.TestData()
-	if err := Analyzer.Flags.Set("report", "source"); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := Analyzer.Flags.Set("config", testdata+"/src/analyzertest/test-config.json"); err != nil {
-		t.Error(err)
-		return
-	}
+// TODO Consider automatic detection of the following types.
+type NamedType sourcetype.Source
+type SliceContainer []sourcetype.Source
+type ArrayContainer [5]sourcetype.Source
+type MapKeyContainer map[sourcetype.Source]interface{}
+type MapValueContainer map[string]sourcetype.Source
 
-	analysistest.Run(t, testdata, Analyzer,
-		"analyzertest/sourcetest",
-		"analyzertest/crosspkg",
-	)
+type EmbeddedWrapper struct {
+	sourcetype.Source
+}
+
+type FieldWrapper struct {
+	s sourcetype.Source
 }
