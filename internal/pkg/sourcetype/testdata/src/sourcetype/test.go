@@ -1,3 +1,5 @@
+// want package:"sources declared: 2"
+
 // Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +17,7 @@
 package sourcetype
 
 type Source struct { // want Source:"source type declaration"
-	Data string // want "source field declaration identified"
+	Data string // want Data:"source field declaration"
 	ID   int
 }
 

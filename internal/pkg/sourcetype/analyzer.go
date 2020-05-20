@@ -26,78 +26,109 @@ import (
 )
 
 type sourceClassifier struct {
-	// ssaTypes maps the package ssa.Member to the corresponding types.Type
-	// This may be many-to-one if the Member is a type alias
-	ssaTypes map[*ssa.Type]types.Type
-
-	// sources maps the source type to its respective source fields.
-	sources map[types.Type][]*types.Var
-
-	facts []*DeclarationFact
+	localFacts  []*DeclarationFact
+	importFacts map[*types.Package]*PackageSourceFacts
 }
 
 func (sc *sourceClassifier) ExportFacts(pass *analysis.Pass) {
-	for _, f := range sc.facts {
-		pass.ExportObjectFact(f.Object, f)
+	// Only export this package's facts
+	pass.ExportPackageFact(&PackageSourceFacts{
+		pkg:     pass.Pkg,
+		sources: sc.localFacts,
+	})
+
+	for _, declFact := range sc.localFacts {
+		pass.ExportObjectFact(declFact.typ, declFact)
+		for _, fldFact := range declFact.fieldFacts {
+			// Type aliasing can lean to the locally declared source referring to out-of-package fields.
+			// Exporting outside of the pass's package is prohibited.
+			if fldFact.field.Pkg() == pass.Pkg {
+				pass.ExportObjectFact(fldFact.field, fldFact)
+			}
+		}
 	}
 }
 
 func (sc *sourceClassifier) IsSource(t types.Type) bool {
-	_, contained := sc.sources[t]
-	return contained
-}
-
-func (sc *sourceClassifier) IsSourceField(t types.Type, f *types.Var) bool {
-	for _, fld := range sc.sources[t] {
-		if fld == f {
+	for _, declFact := range sc.localFacts {
+		if t == declFact.typ.Type() {
 			return true
 		}
 	}
+
+	for _, pkgFacts := range sc.importFacts {
+		for _, declFact := range pkgFacts.sources {
+			if t == declFact.typ.Type() {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
-func (sc *sourceClassifier) add(ssaType *ssa.Type, sourceFields []*types.Var) {
-	sc.ssaTypes[ssaType] = ssaType.Type()
-	sc.sources[ssaType.Type()] = sourceFields
-	sc.facts = append(sc.facts, &DeclarationFact{ssaType.Object()})
-}
-
-func (sc *sourceClassifier) makeReport(pass *analysis.Pass) {
-	// Alias types can double-report field identification.
-	// Don't report the same underlying types.Type more than once.
-	alreadyReported := make(map[types.Type]bool)
-
-	sc.ExportFacts(pass)
-
-	for _, typ := range sc.ssaTypes {
-		if !alreadyReported[typ] {
-			alreadyReported[typ] = true
-			for _, f := range sc.sources[typ] {
-				// Only report on your pass's package to avoid multiple reportings of cross-package alias or named types
-				if f.Pkg() != pass.Pkg {
-					continue
+func (sc *sourceClassifier) IsSourceField(t types.Type, f *types.Var) bool {
+	for _, declFact := range sc.localFacts {
+		if t == declFact.typ.Type() {
+			for _, fld := range declFact.fieldFacts {
+				if fld.field == f {
+					return true
 				}
-				pass.Reportf(f.Pos(), "source field declaration identified: %v (from %v)", f, pass.Pkg)
 			}
-
 		}
 	}
+
+	for _, pkgFacts := range sc.importFacts {
+		for _, declFact := range pkgFacts.sources {
+			if t == declFact.typ.Type() {
+				for _, fld := range declFact.fieldFacts {
+					if fld.field == f {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func newSourceClassifier() *sourceClassifier {
 	return &sourceClassifier{
-		sources:  make(map[types.Type][]*types.Var),
-		ssaTypes: make(map[*ssa.Type]types.Type),
+		importFacts: make(map[*types.Package]*PackageSourceFacts),
 	}
+}
+
+type PackageSourceFacts struct {
+	pkg     *types.Package
+	sources []*DeclarationFact
+}
+
+func (p PackageSourceFacts) AFact() {}
+func (p PackageSourceFacts) String() string {
+	return fmt.Sprintf("sources declared: %d", len(p.sources))
+}
+
+type FieldDeclarationFact struct {
+	field *types.Var
+}
+
+func (f FieldDeclarationFact) AFact() {
+
+}
+
+func (f FieldDeclarationFact) String() string {
+	return "source field declaration"
 }
 
 // DeclarationFact tracks source type declarations across package boundaries.
 type DeclarationFact struct {
-	types.Object
+	typ        types.Object
+	fieldFacts []*FieldDeclarationFact
 }
 
 func (s DeclarationFact) String() string {
-	return fmt.Sprintf("source type declaration: %v", s.Object)
+	return "source type declaration"
 }
 
 func (s DeclarationFact) AFact() {}
@@ -120,29 +151,51 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	sc := newSourceClassifier()
+	// Load source identification from imported packages.
+	for _, pkg := range ssaInput.Pkg.Pkg.Imports() {
+		var fct PackageSourceFacts
+		pass.ImportPackageFact(pkg, &fct)
+		if len(fct.sources) > 0 {
+			sc.importFacts[pkg] = &fct
+		}
+	}
+
 	// Members contains all named entities
 	for _, mem := range ssaInput.Pkg.Members {
 		if ssaType, ok := mem.(*ssa.Type); ok {
 			if conf.IsSource(ssaType.Type()) {
-				var sourceFields []*types.Var
 				// If the member names a struct declaration, examine the fields for additional tagging.
+				var sourceFields []*FieldDeclarationFact
 				if under, ok := ssaType.Type().Underlying().(*types.Struct); ok {
 					for i := 0; i < under.NumFields(); i++ {
 						fld := under.Field(i)
 						if conf.IsSourceField(ssaType.Type(), fld) {
-							sourceFields = append(sourceFields, fld)
+							sourceFields = append(sourceFields, newFieldFact(fld))
 						}
 					}
 				}
+				// TODO Warn if no fields are identified
 
-				sc.add(ssaType, sourceFields)
+				srcFact := newTypeDeclarationFact(ssaType.Object(), sourceFields)
+				sc.localFacts = append(sc.localFacts, srcFact)
 			}
 		}
 	}
 
 	if config.Reporting.Has("sourcetype") {
-		sc.makeReport(pass)
+		sc.ExportFacts(pass)
 	}
 
 	return sc, nil
+}
+
+func newTypeDeclarationFact(typ types.Object, flds []*FieldDeclarationFact) *DeclarationFact {
+	return &DeclarationFact{
+		typ:        typ,
+		fieldFacts: flds,
+	}
+}
+
+func newFieldFact(fld *types.Var) *FieldDeclarationFact {
+	return &FieldDeclarationFact{field: fld}
 }
