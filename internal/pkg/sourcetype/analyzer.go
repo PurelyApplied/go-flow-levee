@@ -140,7 +140,7 @@ var Analyzer = &analysis.Analyzer{
 	Run:        run,
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
 	ResultType: reflect.TypeOf(new(sourceClassifier)),
-	FactTypes:  []analysis.Fact{new(DeclarationFact)},
+	FactTypes:  []analysis.Fact{new(PackageSourceFacts), new(FieldDeclarationFact), new(FieldDeclarationFact)},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -182,10 +182,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 	}
 
-	if config.Reporting.Has("sourcetype") {
-		sc.ExportFacts(pass)
-	}
-
+	sc.ExportFacts(pass)
 	return sc, nil
 }
 

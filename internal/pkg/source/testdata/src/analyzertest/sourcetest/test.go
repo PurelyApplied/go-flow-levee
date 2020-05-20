@@ -15,7 +15,7 @@
 package sourcetest
 
 // source container
-type Source struct { // want Source:"source type declaration"
+type Source struct {
 	Data string // source field
 	ID   int    // public
 }

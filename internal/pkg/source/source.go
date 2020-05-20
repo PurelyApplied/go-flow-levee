@@ -23,7 +23,6 @@ import (
 	"github.com/eapache/queue"
 	"github.com/google/go-flow-levee/internal/pkg/config"
 	"github.com/google/go-flow-levee/internal/pkg/sanitizer"
-	"github.com/google/go-flow-levee/internal/pkg/sourcetype"
 	"github.com/google/go-flow-levee/internal/pkg/utils"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -164,9 +163,7 @@ func sourcesFromParams(pass *analysis.Pass, fn *ssa.Function, stc config.SourceT
 		switch t := p.Type().(type) {
 		case *types.Pointer:
 			if n, ok := t.Elem().(*types.Named); ok {
-				var fct sourcetype.DeclarationFact
-				pass.ImportObjectFact(n.Obj(), &fct)
-				if fct.Object != nil {
+				if stc.IsSource(n) {
 					sources = append(sources, newSource(p))
 				}
 			}
@@ -185,9 +182,7 @@ func sourcesFromClosure(pass *analysis.Pass, fn *ssa.Function, stc config.Source
 			// FreeVars (variables from a closure) appear as double-pointers
 			// Hence, the need to dereference them recursively.
 			if s, ok := utils.Dereference(t).(*types.Named); ok {
-				var fct sourcetype.DeclarationFact
-				pass.ImportObjectFact(s.Obj(), &fct)
-				if fct.Object != nil {
+				if stc.IsSource(s) {
 					sources = append(sources, newSource(p))
 				}
 			}
@@ -214,9 +209,7 @@ func sourcesFromBlocks(pass *analysis.Pass, fn *ssa.Function, stc config.SourceT
 					continue
 				}
 
-				var fct sourcetype.DeclarationFact
-				pass.ImportObjectFact(named.Obj(), &fct)
-				if fct.Object != nil {
+				if stc.IsSource(named) {
 					sources = append(sources, newSource(v))
 				}
 				// Handling the case where PII may be in a receiver
@@ -228,9 +221,7 @@ func sourcesFromBlocks(pass *analysis.Pass, fn *ssa.Function, stc config.SourceT
 					continue
 				}
 
-				var fct sourcetype.DeclarationFact
-				pass.ImportObjectFact(named.Obj(), &fct)
-				if fct.Object != nil {
+				if stc.IsSource(named) {
 					sources = append(sources, newSource(v))
 				}
 			}

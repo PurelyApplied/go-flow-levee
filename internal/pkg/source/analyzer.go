@@ -33,13 +33,11 @@ var Analyzer = &analysis.Analyzer{
 	Run:        run,
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer, sourcetype.Analyzer},
 	ResultType: reflect.TypeOf(new(ResultType)).Elem(),
-	FactTypes:  []analysis.Fact{new(sourcetype.DeclarationFact)},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	stc := pass.ResultOf[sourcetype.Analyzer].(config.SourceTypeClassifier)
-	stc.ExportFacts(pass)
 	conf, err := config.ReadConfig()
 	if err != nil {
 		return nil, err
