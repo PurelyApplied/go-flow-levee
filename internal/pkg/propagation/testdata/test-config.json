@@ -1,33 +1,24 @@
 {
   "Sources": [
     {
-      "PackageRE": "^example.com/core$",
-      "TypeRE": "^Source$",
+      "PackageRE": "",
+      "TypeRE": "^Source",
       "FieldRE": "^Data"
-    }
-  ],
-  "Sinks": [
-    {
-      "PackageRE": "^example.com/core$",
-      "MethodRE": "Sink"
-    }
-  ],
-  "Sanitizers": [
-    {
-      "PackageRE": "^example.com/core$",
-      "MethodRE": "^Sanitize"
     }
   ],
   "FieldPropagators": [
     {
-      "Receiver": "example.com/core.Source",
-      "AccessorRE": "^GetData$",
-      "TODO": "Make this explicit configuration unnecessary."
+      "Receiver": "Source",
+      "AccessorRE": "GetData$"
     }
   ],
   "TransformingPropagators": [
+    {
+      "PackageName": "fmt",
+      "MethodRE": "F.*f$"
+    }
   ],
-  "PropagatorArgs": {},
-  "Whitelist": [],
-  "AnalysisScope": []
+  "PropagatorArgs": {
+    "ArgumentTypeRE": "^io\\.(?:Writer|ReadWriter|WriteCloser|ReadWriteCloser)$"
+  }
 }

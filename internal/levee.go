@@ -31,7 +31,7 @@ var Analyzer = &analysis.Analyzer{
 	Run:      run,
 	Flags:    config.FlagSet,
 	Doc:      "reports attempts to source data to sinks",
-	Requires: []*analysis.Analyzer{source.Analyzer},
+	Requires: []*analysis.Analyzer{source.Analyzer, propagation.Analyzer},
 }
 
 // varargs represents a variable length argument.
@@ -110,10 +110,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// TODO: respect configuration scope
 
 	sourcesMap := pass.ResultOf[source.Analyzer].(source.ResultType)
-	propagationMap := pass.ResultOf[propagation.Analyzer].(propagation.ResultType)
+	propagationMap := pass.ResultOf[propagation.Analyzer].(map[*ssa.Function][]*source.Source)
 	// Only examine functions that have sources
 	for fn, sources := range sourcesMap {
 
+		// Tainted values are not currently distinguished from source values.
 		sources = append(sources, propagationMap[fn]...)
 
 		for _, b := range fn.Blocks {

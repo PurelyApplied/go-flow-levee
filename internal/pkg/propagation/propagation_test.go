@@ -20,10 +20,13 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
-func TestLevee(t *testing.T) {
+func TestPropagatorAnalysis(t *testing.T) {
 	dir := analysistest.TestData()
 	if err := Analyzer.Flags.Set("config", dir+"/test-config.json"); err != nil {
 		t.Error(err)
 	}
-	analysistest.Run(t, dir, Analyzer, dir + "/src/tests/...")
+	analysistest.Run(t, dir, Analyzer,
+		//"tests/getter",
+		"tests/writer",
+		)
 }

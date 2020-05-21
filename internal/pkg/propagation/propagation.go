@@ -24,15 +24,13 @@ import (
 	"github.com/google/go-flow-levee/internal/pkg/source"
 )
 
-type ResultType map[*ssa.Function][]*source.Source
-
 var Analyzer = &analysis.Analyzer{
 	Name:       "levee",
 	Doc:        "reports attempts to source data to sinks",
 	Flags:      config.FlagSet,
 	Run:        run,
 	Requires:   []*analysis.Analyzer{source.Analyzer},
-	ResultType: reflect.TypeOf(ResultType{}),
+	ResultType: reflect.TypeOf(map[*ssa.Function][]*source.Source{}),
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -77,11 +75,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	for _, taints := range propagationMap {
 		for _, t := range taints {
-			pass.Reportf(t.Node().Pos(), "taint propagation identified")
+			pass.Reportf(t.Node().Pos(), "this value becomes tainted")
 		}
 	}
 
-	return ResultType(propagationMap), nil
+	return propagationMap, nil
 }
 
 func sendsToIOWriter(c *config.Config, call *ssa.Call) ssa.Node {
