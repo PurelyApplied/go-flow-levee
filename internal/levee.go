@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/google/go-flow-levee/internal/pkg/config"
+	"github.com/google/go-flow-levee/internal/pkg/propagation"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 
@@ -109,10 +110,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// TODO: respect configuration scope
 
 	sourcesMap := pass.ResultOf[source.Analyzer].(source.ResultType)
-
+	propagationMap := pass.ResultOf[propagation.Analyzer].(propagation.ResultType)
 	// Only examine functions that have sources
 	for fn, sources := range sourcesMap {
-		//log.V(2).Infof("Processing function %v", fn)
+
+		sources = append(sources, propagationMap[fn]...)
 
 		for _, b := range fn.Blocks {
 			if b == fn.Recover {
@@ -121,26 +123,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			}
 
 			for _, instr := range b.Instrs {
-				//log.V(2).Infof("Inst: %v %T", instr, instr)
 				switch v := instr.(type) {
 				case *ssa.Call:
 					switch {
-					case conf.IsPropagator(v):
-						// Handling the case where sources are propagated to io.Writer
-						// (ex. proto.MarshalText(&buf, c)
-						// In such cases, "buf" becomes a source, and not the return value of the propagator.
-						// TODO Do not hard-code logging sinks usecase
-						// TODO  Handle case of os.Stdout and os.Stderr.
-						// TODO  Do not hard-code the position of the argument, instead declaratively
-						//  specify the position of the propagated source.
-						// TODO  Consider turning propagators that take io.Writer into sinks.
-						if a := sendsToIOWriter(conf, v); a != nil {
-							sources = append(sources, source.New(a, conf))
-						} else {
-							//log.V(2).Infof("Adding source: %v %T", v.Value(), v.Value())
-							sources = append(sources, source.New(v, conf))
-						}
-
 					case conf.IsSink(v):
 						// TODO Only variadic sink arguments are currently detected.
 						if v.Call.Signature().Variadic() && len(v.Call.Args) > 0 {
@@ -169,19 +154,4 @@ func report(pass *analysis.Pass, source *source.Source, sink ssa.Node) {
 	b.WriteString("a source has reached a sink")
 	fmt.Fprintf(&b, ", source: %v", pass.Fset.Position(source.Node().Pos()))
 	pass.Reportf(sink.Pos(), b.String())
-}
-
-func sendsToIOWriter(c *config.Config, call *ssa.Call) ssa.Node {
-	if call.Call.Signature().Params().Len() == 0 {
-		return nil
-	}
-
-	firstArg := call.Call.Signature().Params().At(0)
-	if c.PropagatorArgs.ArgumentTypeRE.MatchString(firstArg.Type().String()) {
-		if a, ok := call.Call.Args[0].(*ssa.MakeInterface); ok {
-			return a.X.(ssa.Node)
-		}
-	}
-
-	return nil
 }
