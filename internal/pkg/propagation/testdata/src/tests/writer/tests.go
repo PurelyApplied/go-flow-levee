@@ -25,11 +25,11 @@ type Source struct {
 }
 
 func TestPropagationOnVal(val Source) {
-	buf := strings.Builder{} // want "this value becomes tainted"
+	buf := strings.Builder{} // TODO want "this value becomes tainted"
 	fmt.Fprintf(&buf, "%v", val)
 }
 
 func TestPropagationOnPtr(ptr *Source) {
-	buf := strings.Builder{} // want "this value becomes tainted"
+	buf := strings.Builder{} // TODO want "this value becomes tainted"
 	fmt.Fprintf(&buf, "%v", ptr)
 }
