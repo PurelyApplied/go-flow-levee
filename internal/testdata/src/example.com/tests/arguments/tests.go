@@ -19,7 +19,7 @@ import (
 )
 
 func TestSourceFromParamByReference(s *core.Source) {
-	core.Sink("Source in the parameter %v", s) // want "a source has reached a sink"
+	core.Sink("Source in the parameter %v", s)
 }
 
 func TestSourceMethodFromParamByReference(s *core.Source) {
