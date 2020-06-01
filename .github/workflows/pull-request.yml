@@ -1,0 +1,36 @@
+name: "pull request CI"
+on: pull_request
+
+defaults:
+  runs-on: ubuntu-latest
+
+jobs:
+  formatting:
+    name: "Check formatting"
+    steps:
+    - name: "check"
+      run: |
+        test -z "$(goimports -l internal cmd)"
+  mod:
+    name: "Check go modules"
+    steps:
+    - name: "check"
+      run: |
+        go mod tidy
+        git diff --quiet
+  test:
+    name: "Run tests"
+    steps:
+    - name: "check"
+      run: |
+        go test ./...
+  vet:
+    name: "Verify go vet integration"
+    steps:
+    - name: "check"
+      run: |
+        go build -o . ./...
+        cat << EOF > .config.json
+        {}
+        EOF
+        go vet -vettool $(pwd)/levee -config $(pwd)/.config.json ./...
