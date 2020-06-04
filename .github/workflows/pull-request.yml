@@ -7,6 +7,7 @@ jobs:
     name: "Check formatting"
     steps:
     - name: "check"
+      uses: actions/checkout@v2
       run: |
         test -z "$(goimports -l internal cmd)"
   pwd:
@@ -14,6 +15,7 @@ jobs:
     name: "print pwd"
     steps:
     - name: "pwd"
+      uses: actions/checkout@v2
       run: |
         echo $(pwd)
         tree $(pwd)
@@ -22,6 +24,7 @@ jobs:
     name: "Check go modules"
     steps:
     - name: "check"
+      uses: actions/checkout@v2
       run: |
         go mod tidy
         git diff --quiet
@@ -30,6 +33,7 @@ jobs:
     name: "Run tests"
     steps:
     - name: "check"
+      uses: actions/checkout@v2
       run: |
         go test ./...
   vet:
@@ -37,6 +41,7 @@ jobs:
     name: "Verify go vet integration"
     steps:
     - name: "check"
+      uses: actions/checkout@v2
       run: |
         go build -o . ./...
         cat << EOF > .config.json
