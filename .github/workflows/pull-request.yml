@@ -4,26 +4,16 @@ on: pull_request
 jobs:
   formatting:
     runs-on: ubuntu-latest
-    name: "Check formatting"
+    name: "Check formatting with goimports"
     steps:
     - name: "checkout"
       uses: actions/checkout@v2
     - name: "check"
       run: |
         test -z "$(goimports -l internal cmd)"
-  pwd:
-    runs-on: ubuntu-latest
-    name: "print pwd"
-    steps:
-    - name: "checkout"
-      uses: actions/checkout@v2
-    - name: "pwd"
-      run: |
-        echo $(pwd)
-        find .
   mod:
     runs-on: ubuntu-latest
-    name: "Check go modules"
+    name: "Run `go mod tidy`"
     steps:
     - name: "checkout"
       uses: actions/checkout@v2
@@ -42,7 +32,7 @@ jobs:
         go test ./...
   vet:
     runs-on: ubuntu-latest
-    name: "Verify go vet integration"
+    name: "Verify binary integration with `go vet`"
     steps:
     - name: "checkout"
       uses: actions/checkout@v2
