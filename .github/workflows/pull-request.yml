@@ -9,6 +9,13 @@ jobs:
     - name: "check"
       run: |
         test -z "$(goimports -l internal cmd)"
+  pwd:
+    runs-on: ubuntu-latest
+    name: "print pwd"
+    steps:
+    - name: "pwd"
+      run: |
+        echo $(pwd)
   mod:
     runs-on: ubuntu-latest
     name: "Check go modules"
