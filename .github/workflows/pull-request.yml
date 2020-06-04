@@ -16,6 +16,7 @@ jobs:
     - name: "pwd"
       run: |
         echo $(pwd)
+        tree $(pwd)
   mod:
     runs-on: ubuntu-latest
     name: "Check go modules"
