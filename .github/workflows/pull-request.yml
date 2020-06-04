@@ -1,17 +1,16 @@
 name: "pull request CI"
 on: pull_request
 
-defaults:
-  runs-on: ubuntu-latest
-
 jobs:
   formatting:
+    runs-on: ubuntu-latest
     name: "Check formatting"
     steps:
     - name: "check"
       run: |
         test -z "$(goimports -l internal cmd)"
   mod:
+    runs-on: ubuntu-latest
     name: "Check go modules"
     steps:
     - name: "check"
@@ -19,12 +18,14 @@ jobs:
         go mod tidy
         git diff --quiet
   test:
+    runs-on: ubuntu-latest
     name: "Run tests"
     steps:
     - name: "check"
       run: |
         go test ./...
   vet:
+    runs-on: ubuntu-latest
     name: "Verify go vet integration"
     steps:
     - name: "check"
