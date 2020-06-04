@@ -6,16 +6,18 @@ jobs:
     runs-on: ubuntu-latest
     name: "Check formatting"
     steps:
-    - name: "check"
+    - name: "checkout"
       uses: actions/checkout@v2
+    - name: "check"
       run: |
         test -z "$(goimports -l internal cmd)"
   pwd:
     runs-on: ubuntu-latest
     name: "print pwd"
     steps:
-    - name: "pwd"
+    - name: "checkout"
       uses: actions/checkout@v2
+    - name: "pwd"
       run: |
         echo $(pwd)
         find .
@@ -23,8 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     name: "Check go modules"
     steps:
-    - name: "check"
+    - name: "checkout"
       uses: actions/checkout@v2
+    - name: "check"
       run: |
         go mod tidy
         git diff --quiet
@@ -32,16 +35,18 @@ jobs:
     runs-on: ubuntu-latest
     name: "Run tests"
     steps:
-    - name: "check"
+    - name: "checkout"
       uses: actions/checkout@v2
+    - name: "check"
       run: |
         go test ./...
   vet:
     runs-on: ubuntu-latest
     name: "Verify go vet integration"
     steps:
-    - name: "check"
+    - name: "checkout"
       uses: actions/checkout@v2
+    - name: "check"
       run: |
         go build -o . ./...
         cat << EOF > .config.json
