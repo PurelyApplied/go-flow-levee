@@ -1,13 +1,16 @@
 name: "pull request CI"
 on: pull_request
 
+with-checkout: &with-checkout
+  name: "checkout"
+  uses: actions/checkout@v2
+
 jobs:
   formatting:
     runs-on: ubuntu-latest
     name: "Check formatting with goimports"
     steps:
-    - name: "checkout"
-      uses: actions/checkout@v2
+    - *with-checkout
     - name: "check"
       run: |
         test -z "$(goimports -l internal cmd)"
@@ -15,8 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "Run `go mod tidy`"
     steps:
-    - name: "checkout"
-      uses: actions/checkout@v2
+    - *with-checkout
     - name: "check"
       run: |
         go mod tidy
@@ -25,8 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "Run tests"
     steps:
-    - name: "checkout"
-      uses: actions/checkout@v2
+    - *with-checkout
     - name: "check"
       run: |
         go test ./...
@@ -34,8 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "Verify binary integration with `go vet`"
     steps:
-    - name: "checkout"
-      uses: actions/checkout@v2
+    - *with-checkout
     - name: "check"
       run: |
         go build -o . ./...
