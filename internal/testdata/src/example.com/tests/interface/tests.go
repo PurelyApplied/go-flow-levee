@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,28 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package arguments
 
 import (
-	"testing"
-
-	"golang.org/x/tools/go/analysis/analysistest"
+	"example.com/core"
 )
 
-var patterns = []string{
-	"example.com/tests/arguments",
-	"example.com/tests/declarations",
-	"example.com/tests/dominance",
-	"example.com/tests/fields",
-	"example.com/tests/interface",
-	"example.com/tests/receivers",
-	"example.com/tests/sinks",
+func sinkWrapper(s interface{}) {
+	core.Sink("Source in the parameter %v", s) // want "a source has reached a sink"
 }
 
-func TestLevee(t *testing.T) {
-	dir := analysistest.TestData()
-	if err := Analyzer.Flags.Set("config", dir+"/test-config.json"); err != nil {
-		t.Error(err)
-	}
-	analysistest.Run(t, dir, Analyzer, patterns...)
+func TestSourceFromParamByReference(s *core.Source) {
+	sinkWrapper(s)
 }
