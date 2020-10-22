@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"go/types"
 	"reflect"
-	"sort"
 
 	"github.com/google/go-flow-levee/internal/pkg/config"
 	"github.com/google/go-flow-levee/internal/pkg/fieldtags"
@@ -87,75 +86,24 @@ var Analyzer = &analysis.Analyzer{
 var Report bool
 
 func run(pass *analysis.Pass) (interface{}, error) {
-	taggedFields := pass.ResultOf[fieldtags.Analyzer].(fieldtags.ResultType)
 	ssaInput := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
-	conf, err := config.ReadConfig()
-	if err != nil {
-		return nil, err
-	}
 
+	cheat := make(map[string]*ssa.Type)
 	// Members contains all named entities
 	for _, mem := range ssaInput.Pkg.Members {
-		if ssaType, ok := mem.(*ssa.Type); ok &&
-			(conf.IsSource(ssaType.Type()) || hasTaggedField(mem, taggedFields)) {
-			exportSourceFacts(pass, ssaType, conf, taggedFields)
+		if ssaType, ok := mem.(*ssa.Type); ok {
+			cheat[ssaType.Object().Name()] = ssaType
 		}
 	}
 
-	classifier := &sourceClassifier{pass.AllObjectFacts()}
-	if Report {
-		makeReport(classifier, pass)
-	}
+	a := cheat["A"]
+	s := cheat["Source"]
+	n := cheat["NotSource"]
 
-	return classifier, nil
-}
+	au, su, nu := a.Type().Underlying(), s.Type().Underlying(), n.Type().Underlying()
 
-func hasTaggedField(mem ssa.Member, taggedFields fieldtags.ResultType) bool {
-	n, ok := mem.Type().(*types.Named)
-	if !ok {
-		return false
-	}
-	s, ok := n.Underlying().(*types.Struct)
-	if !ok {
-		return false
-	}
-	var has bool
-	for i := 0; i < s.NumFields(); i++ {
-		f := s.Field(i)
-		has = has || taggedFields.IsSource(f)
-	}
-	return has
-}
-
-func exportSourceFacts(pass *analysis.Pass, ssaType *ssa.Type, conf *config.Config, taggedFields fieldtags.ResultType) {
-	pass.ExportObjectFact(ssaType.Object(), &typeDeclFact{})
-	if under, ok := ssaType.Type().Underlying().(*types.Struct); ok {
-		for i := 0; i < under.NumFields(); i++ {
-			fld := under.Field(i)
-			if fld.Pkg() != pass.Pkg {
-				continue
-			}
-			if conf.IsSourceField(ssaType.Type(), fld) || taggedFields.IsSource(fld) {
-				pass.ExportObjectFact(fld, &fieldDeclFact{})
-			}
-		}
-	}
-}
-
-func makeReport(classifier *sourceClassifier, pass *analysis.Pass) {
-	// Aggregate diagnostics first in order to sort report by position.
-	var diags []analysis.Diagnostic
-	for _, objFact := range classifier.passObjFacts {
-		// A pass should only report within its package.
-		if objFact.Object.Pkg() == pass.Pkg {
-			diags = append(diags, analysis.Diagnostic{
-				Pos:     objFact.Object.Pos(),
-				Message: fmt.Sprintf("%v: %v", objFact.Fact, objFact.Object.Name()),
-			})
-		}
-	}
-	sort.Slice(diags, func(i, j int) bool { return diags[i].Pos < diags[j].Pos })
-	for _, d := range diags {
-		pass.Reportf(d.Pos, d.Message)
-	}
+	fmt.Printf("au == su: %v\n", au == su)
+	fmt.Printf("nu == su: %v\n", nu == su)
+	fmt.Printf("au == nu: %v\n", au == nu)
+	return nil, nil
 }

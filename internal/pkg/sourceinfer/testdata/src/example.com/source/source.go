@@ -17,3 +17,5 @@ package source
 type Source struct{}
 
 type NotSource struct{}
+
+type A Source
