@@ -42,6 +42,7 @@ type sourceMatcher struct {
 	Package stringMatcher
 	Type    stringMatcher
 	Field   stringMatcher
+	Exclude []*sourceMatcher
 }
 
 // this type uses the default unmarshaler and mirrors configuration key-value pairs
@@ -52,6 +53,7 @@ type rawSourceMatcher struct {
 	PackageRE *regexp.Regexp
 	TypeRE    *regexp.Regexp
 	FieldRE   *regexp.Regexp
+	Exclude   []*sourceMatcher
 }
 
 func (s *sourceMatcher) UnmarshalJSON(bytes []byte) error {
@@ -75,12 +77,23 @@ func (s *sourceMatcher) UnmarshalJSON(bytes []byte) error {
 		Package: matcherFrom(raw.Package, raw.PackageRE),
 		Type:    matcherFrom(raw.Type, raw.TypeRE),
 		Field:   matcherFrom(raw.Field, raw.FieldRE),
+		Exclude: raw.Exclude,
 	}
 	return nil
 }
 
 func (s sourceMatcher) MatchType(path, typeName string) bool {
-	return s.Package.MatchString(path) && s.Type.MatchString(typeName)
+	if match := s.Package.MatchString(path) && s.Type.MatchString(typeName); !match {
+		return false
+	}
+
+	for _, ex := range s.Exclude {
+		if ex.MatchType(path, typeName) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s sourceMatcher) MatchField(path, typeName, fieldName string) bool {
@@ -91,6 +104,7 @@ type funcMatcher struct {
 	Package  stringMatcher
 	Receiver stringMatcher
 	Method   stringMatcher
+	Exclude  []*funcMatcher
 }
 
 // this type uses the default unmarshaler and mirrors configuration key-value pairs
@@ -101,6 +115,7 @@ type rawFuncMatcher struct {
 	PackageRE  *regexp.Regexp
 	ReceiverRE *regexp.Regexp
 	MethodRE   *regexp.Regexp
+	Exclude    []*funcMatcher
 }
 
 func (fm *funcMatcher) UnmarshalJSON(bytes []byte) error {
@@ -124,10 +139,23 @@ func (fm *funcMatcher) UnmarshalJSON(bytes []byte) error {
 		Package:  matcherFrom(raw.Package, raw.PackageRE),
 		Receiver: matcherFrom(raw.Receiver, raw.ReceiverRE),
 		Method:   matcherFrom(raw.Method, raw.MethodRE),
+		Exclude:  raw.Exclude,
 	}
 	return nil
 }
 
 func (fm funcMatcher) MatchFunction(path, receiver, name string) bool {
-	return fm.Package.MatchString(path) && fm.Receiver.MatchString(receiver) && fm.Method.MatchString(name)
+	if match := fm.Package.MatchString(path) &&
+		fm.Receiver.MatchString(receiver) &&
+		fm.Method.MatchString(name); !match {
+		return false
+	}
+
+	for _, ex := range fm.Exclude {
+		if ex.MatchFunction(path, receiver, name) {
+			return false
+		}
+	}
+
+	return true
 }
