@@ -128,6 +128,41 @@ Method: bar`,
 			shouldMatch: true,
 		},
 		{
+			desc: "Exclusion matcher excludes when relevant",
+			yaml: `
+Package: foo
+Receiver: baz
+Method: bar
+Exclude:
+- Package: foo`,
+			path:        "foo",
+			recv:        "baz",
+			name:        "bar",
+			shouldMatch: false,
+		},
+		{
+			desc: "Exclusion matcher does not exclude when not relevant",
+			yaml: `
+Package: foo
+Receiver: baz
+Method: bar
+Exclude:
+- Package: foolish
+  Receiver: baz
+  Method: bar
+- Package: foo
+  Receiver: bazinga
+  Method: bar
+- Package: foo
+  Receiver: baz
+  Method: barbasol
+`,
+			path:        "foo",
+			recv:        "baz",
+			name:        "bar",
+			shouldMatch: true,
+		},
+		{
 			desc: "Mixed regexp and literal matchers are permitted - negative case",
 			yaml: `
 PackageRE: foo
@@ -230,6 +265,56 @@ Type: bar`,
 			fieldName:        "baz",
 			shouldMatchType:  true,
 			shouldMatchField: true,
+		},
+		{
+			desc: "Exclusion matcher excludes when relevant",
+			yaml: `
+Package: foo
+Type: bar
+Exclude:
+- Package: foo
+  Receiver: bar`,
+			path:             "foo",
+			typ:              "bar",
+			fieldName:        "baz",
+			shouldMatchType:  false,
+			shouldMatchField: false,
+		},
+		{
+			desc: "Exclusion matcher does not exclude when not relevant",
+			yaml: `
+Package: foo
+Type: bar
+Exclude:
+- Package: foodstuff
+  Type: bar
+  Field: baz
+- Package: foo
+  Type: barbasol
+  Field: baz
+`,
+			path:             "foo",
+			typ:              "bar",
+			fieldName:        "baz",
+			shouldMatchType:  true,
+			shouldMatchField: true,
+		},
+		// TODO Discuss: is this pathological?  Is this the sort of thing we want to report in a config-checker?
+		{
+			desc: "Exclusion matcher might exclude type but not field",
+			yaml: `
+Package: foo
+Type: bar
+Exclude:
+- Package: foo    # This excludes type matching foo.bar but not foo.(bar).baz
+  Type: bar
+  Field: bazinga
+`,
+			path:             "foo",
+			typ:              "bar",
+			fieldName:        "baz",
+			shouldMatchType:  true,
+			shouldMatchField: false,
 		},
 		{
 			desc: "Literal foo.bar (no field args) should NOT match foodstuff.bar or foodstuff.bar.baz",

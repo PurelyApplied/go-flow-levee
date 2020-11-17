@@ -97,7 +97,18 @@ func (s sourceMatcher) MatchType(path, typeName string) bool {
 }
 
 func (s sourceMatcher) MatchField(path, typeName, fieldName string) bool {
-	return s.Package.MatchString(path) && s.Type.MatchString(typeName) && s.Field.MatchString(fieldName)
+	if match := s.Package.MatchString(path) &&
+		s.Type.MatchString(typeName) &&
+		s.Field.MatchString(fieldName); !match {
+		return false
+	}
+
+	for _, ex := range s.Exclude {
+		if ex.MatchField(path, typeName, fieldName) {
+			return false
+		}
+	}
+	return true
 }
 
 type funcMatcher struct {
