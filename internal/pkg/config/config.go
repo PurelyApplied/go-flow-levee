@@ -33,9 +33,9 @@ var (
 	// FlagSet should be used by analyzers to reuse -config flag.
 	FlagSet                    flag.FlagSet
 	configFile                 string
-	validFuncMatcherFields     []string = []string{"package", "packagere", "receiver", "receiverre", "method", "methodre"}
-	validSourceMatcherFields   []string = []string{"package", "packagere", "type", "typere", "field", "fieldre"}
-	validFieldTagMatcherFields []string = []string{"key", "val", "value"}
+	validFuncMatcherFields     = []string{"package", "packagere", "receiver", "receiverre", "method", "methodre"}
+	validSourceMatcherFields   = []string{"package", "packagere", "type", "typere", "field", "fieldre"}
+	validFieldTagMatcherFields = []string{"key", "val", "value"}
 )
 
 func init() {
