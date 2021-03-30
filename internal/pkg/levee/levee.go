@@ -53,6 +53,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	suppressedNodes := pass.ResultOf[suppression.Analyzer].(suppression.ResultType)
 
 	sinks := identifySinks(funcSources, conf)
+	callPropagators := identifyCallProps(funcSources)
+
+	printSomeStats(pass, sinks, callPropagators, funcSources)
 
 	for fn, sources := range funcSources {
 		propagations := make(map[*source.Source]propagation.Propagation, len(sources))
@@ -78,6 +81,22 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
+func printSomeStats(pass *analysis.Pass, sinks map[*ssa.Function][]ssa.Instruction, callPropagators map[*ssa.Function][]ssa.Instruction, funcSources source.ResultType) {
+	var intersection []*ssa.Function
+	for fn, _ := range sinks {
+		if _, ok := callPropagators[fn]; ok {
+			intersection = append(intersection, fn)
+		}
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Package statistics (%v):\n", pass.Pkg)
+	fmt.Fprintf(&b, "  Number of functions containing at least one source: %v\n", len(funcSources))
+	fmt.Fprintf(&b, "    |- and at least one sink: %v\n", len(sinks))
+	fmt.Fprintf(&b, "    |- and at least stdlib propagator call: %v\n", len(callPropagators))
+	fmt.Fprintf(&b, "    |- BOTH a sink and a propagator: %v\n", len(intersection))
+	fmt.Println(b.String())
+}
+
 // identifySinks returns a map of function to sink calls within that function,
 // restricted to those functions which have sources present
 func identifySinks(funcSources source.ResultType, conf *config.Config) map[*ssa.Function][]ssa.Instruction {
@@ -101,6 +120,26 @@ func identifySinks(funcSources source.ResultType, conf *config.Config) map[*ssa.
 		}
 	}
 	return sinks
+}
+
+// identifyCallProps returns a map of function to stdlib propagator calls within that function,
+// restricted to those functions which have sources present
+func identifyCallProps(funcSources source.ResultType) map[*ssa.Function][]ssa.Instruction {
+	var callPropagators = make(map[*ssa.Function][]ssa.Instruction)
+
+	for fn, _ := range funcSources {
+		for _, b := range fn.Blocks {
+			for _, instr := range b.Instrs {
+				switch v := instr.(type) {
+				case *ssa.Call:
+					if propagation.HasInterfaceSummary(v) || propagation.HasStaticSummary(v) {
+						callPropagators[fn] = append(callPropagators[fn], v)
+					}
+				}
+			}
+		}
+	}
+	return callPropagators
 }
 
 func reportSourcesReachingSink(conf *config.Config, pass *analysis.Pass, suppressedNodes suppression.ResultType, propagations map[*source.Source]propagation.Propagation, sink ssa.Instruction) {

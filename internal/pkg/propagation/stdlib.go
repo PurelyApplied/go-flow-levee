@@ -26,7 +26,7 @@ import (
 // library function, provided that the function's taint propagation behavior
 // is known (i.e. the function has a summary).
 func (prop *Propagation) taintStdlibCall(call *ssa.Call, maxInstrReached map[*ssa.BasicBlock]int, lastBlockVisited *ssa.BasicBlock) {
-	summ, ok := funcSummaries[funcName(call)]
+	summ, ok := getStaticSummary(call)
 	if !ok {
 		return
 	}
@@ -34,12 +34,22 @@ func (prop *Propagation) taintStdlibCall(call *ssa.Call, maxInstrReached map[*ss
 	prop.taintFromSummary(summ, call, call.Call.Args, maxInstrReached, lastBlockVisited)
 }
 
+func HasStaticSummary(call *ssa.Call) bool {
+	_, has := getStaticSummary(call)
+	return has
+}
+
+func getStaticSummary(call *ssa.Call) (summary, bool) {
+	r, ok := funcSummaries[funcName(call)]
+	return r, ok
+}
+
 // taintStdlibInterfaceCall propagates taint through a call to a function that
 // implements an interface function from the standard library, provided that the
 // function's taint propagation behavior is known (i.e. the function has a summary).
 // This can be a static call or a dynamic call.
 func (prop *Propagation) taintStdlibInterfaceCall(call *ssa.Call, maxInstrReached map[*ssa.BasicBlock]int, lastBlockVisited *ssa.BasicBlock) {
-	summ, ok := interfaceFuncSummaries[funcKey{funcNameWithoutReceiver(call), sigTypeString(call.Call.Signature())}]
+	summ, ok := getInterfaceSummary(call)
 	if !ok {
 		return
 	}
@@ -52,6 +62,16 @@ func (prop *Propagation) taintStdlibInterfaceCall(call *ssa.Call, maxInstrReache
 	args = append(args, call.Call.Args...)
 
 	prop.taintFromSummary(summ, call, args, maxInstrReached, lastBlockVisited)
+}
+
+func HasInterfaceSummary(call *ssa.Call) bool {
+	_, has := getInterfaceSummary(call)
+	return has
+}
+
+func getInterfaceSummary(call *ssa.Call) (summary, bool) {
+	r, ok := interfaceFuncSummaries[funcKey{funcNameWithoutReceiver(call), sigTypeString(call.Call.Signature())}]
+	return r, ok
 }
 
 func (prop *Propagation) taintFromSummary(summ summary, call *ssa.Call, args []ssa.Value, maxInstrReached map[*ssa.BasicBlock]int, lastBlockVisited *ssa.BasicBlock) {
