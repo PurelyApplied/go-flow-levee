@@ -52,30 +52,55 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	taggedFields := pass.ResultOf[fieldtags.Analyzer].(fieldtags.ResultType)
 	suppressedNodes := pass.ResultOf[suppression.Analyzer].(suppression.ResultType)
 
+	sinks := identifySinks(funcSources, conf)
+
 	for fn, sources := range funcSources {
 		propagations := make(map[*source.Source]propagation.Propagation, len(sources))
 		for _, s := range sources {
 			propagations[s] = propagation.Taint(s.Node, conf, taggedFields)
 		}
 
-		for _, b := range fn.Blocks {
-			for _, instr := range b.Instrs {
-				switch v := instr.(type) {
-				case *ssa.Call:
-					if callee := v.Call.StaticCallee(); callee != nil && conf.IsSink(utils.DecomposeFunction(callee)) {
-						reportSourcesReachingSink(conf, pass, suppressedNodes, propagations, instr)
-					}
-				case *ssa.Panic:
-					if conf.AllowPanicOnTaintedValues {
-						continue
-					}
+		for _, instr := range sinks[fn] {
+			switch v := instr.(type) {
+			case *ssa.Call:
+				if callee := v.Call.StaticCallee(); callee != nil && conf.IsSink(utils.DecomposeFunction(callee)) {
 					reportSourcesReachingSink(conf, pass, suppressedNodes, propagations, instr)
 				}
+			case *ssa.Panic:
+				if conf.AllowPanicOnTaintedValues {
+					continue
+				}
+				reportSourcesReachingSink(conf, pass, suppressedNodes, propagations, instr)
 			}
 		}
 	}
 
 	return nil, nil
+}
+
+// identifySinks returns a map of function to sink calls within that function,
+// restricted to those functions which have sources present
+func identifySinks(funcSources source.ResultType, conf *config.Config) map[*ssa.Function][]ssa.Instruction {
+	var sinks = make(map[*ssa.Function][]ssa.Instruction)
+
+	for fn, _ := range funcSources {
+		for _, b := range fn.Blocks {
+			for _, instr := range b.Instrs {
+				switch v := instr.(type) {
+				case *ssa.Call:
+					if callee := v.Call.StaticCallee(); callee != nil && conf.IsSink(utils.DecomposeFunction(callee)) {
+						sinks[fn] = append(sinks[fn], instr)
+					}
+				case *ssa.Panic:
+					if conf.AllowPanicOnTaintedValues {
+						continue
+					}
+					sinks[fn] = append(sinks[fn], instr)
+				}
+			}
+		}
+	}
+	return sinks
 }
 
 func reportSourcesReachingSink(conf *config.Config, pass *analysis.Pass, suppressedNodes suppression.ResultType, propagations map[*source.Source]propagation.Propagation, sink ssa.Instruction) {
