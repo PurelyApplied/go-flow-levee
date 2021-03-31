@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"strings"
 
 	"github.com/google/go-flow-levee/internal/pkg/config"
@@ -81,6 +82,25 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
+type runInfo struct {
+	pkg                             *types.Package
+	srcs, sinks, callprop, intersec int
+}
+
+func (i runInfo) String() string {
+	if i.srcs == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Package statistics (%v):\n", i.pkg)
+	fmt.Fprintf(&b, "  Number of functions containing at least one source: %v\n", i.srcs)
+	fmt.Fprintf(&b, "    |- and at least one sink: %v\n", i.sinks)
+	fmt.Fprintf(&b, "    |- and at least stdlib propagator call: %v\n", i.callprop)
+	fmt.Fprintf(&b, "    |- BOTH a sink and a propagator: %v\n", i.intersec)
+	return b.String()
+}
+
 func printSomeStats(pass *analysis.Pass, sinks map[*ssa.Function][]ssa.Instruction, callPropagators map[*ssa.Function][]ssa.Instruction, funcSources source.ResultType) {
 	var intersection []*ssa.Function
 	for fn, _ := range sinks {
@@ -88,13 +108,17 @@ func printSomeStats(pass *analysis.Pass, sinks map[*ssa.Function][]ssa.Instructi
 			intersection = append(intersection, fn)
 		}
 	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "Package statistics (%v):\n", pass.Pkg)
-	fmt.Fprintf(&b, "  Number of functions containing at least one source: %v\n", len(funcSources))
-	fmt.Fprintf(&b, "    |- and at least one sink: %v\n", len(sinks))
-	fmt.Fprintf(&b, "    |- and at least stdlib propagator call: %v\n", len(callPropagators))
-	fmt.Fprintf(&b, "    |- BOTH a sink and a propagator: %v\n", len(intersection))
-	fmt.Println(b.String())
+	info := runInfo{
+		pkg:      pass.Pkg,
+		srcs:     len(funcSources),
+		sinks:    len(sinks),
+		callprop: len(callPropagators),
+		intersec: len(intersection),
+	}
+
+	if s := info.String(); s != "" {
+		fmt.Println(s)
+	}
 }
 
 // identifySinks returns a map of function to sink calls within that function,
