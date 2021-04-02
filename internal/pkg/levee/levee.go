@@ -83,42 +83,73 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 type runInfo struct {
-	pkg                             *types.Package
-	srcs, sinks, callprop, intersec int
+	pkg *types.Package
+
+	srcs          source.ResultType
+	sinks         map[*ssa.Function][]ssa.Instruction
+	callprop      map[*ssa.Function][]ssa.Instruction
+	intersec      []*ssa.Function
+	sinkButNoProp []*ssa.Function
 }
 
-func (i runInfo) String() string {
-	if i.srcs == 0 {
+func (i runInfo) String(pass *analysis.Pass) string {
+	nSrc, nSink, nProp, nIntersec := len(i.srcs), len(i.sinks), len(i.callprop), len(i.intersec)
+	_ = nProp
+
+	if nSrc == 0 || nSink <= nIntersec {
 		return ""
 	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Package statistics (%v):\n", i.pkg)
-	fmt.Fprintf(&b, "  Number of functions containing at least one source: %v\n", i.srcs)
-	fmt.Fprintf(&b, "    |- and at least one sink: %v\n", i.sinks)
-	fmt.Fprintf(&b, "    |- and at least stdlib propagator call: %v\n", i.callprop)
-	fmt.Fprintf(&b, "    |- BOTH a sink and a propagator: %v\n", i.intersec)
+	fmt.Fprintf(&b, "  Number of functions containing at least one source: %v\n", nSrc)
+	fmt.Fprintf(&b, "    |- and at least one sink: %v\n", nSink)
+	fmt.Fprintf(&b, "    |- BOTH a sink and a propagator: %v\n", nIntersec)
+	fmt.Fprintf(&b, "    |- sink but no props: %v\n", len(i.sinkButNoProp))
+
+	for _, fn := range i.sinkButNoProp {
+		srcs := i.srcs[fn]
+
+		fmt.Fprintf(&b, "        |- See functions:\n")
+		fmt.Fprintf(&b, "            - %v:\n", fn)
+		fmt.Fprintf(&b, "            - %v\n", pass.Fset.Position(fn.Pos()))
+		for _, s := range srcs {
+			fmt.Fprintf(&b, "            - source %v\n", s)
+			fmt.Fprintf(&b, "            - %v\n", pass.Fset.Position(s.Pos()))
+		}
+	}
+
 	return b.String()
 }
 
 func printSomeStats(pass *analysis.Pass, sinks map[*ssa.Function][]ssa.Instruction, callPropagators map[*ssa.Function][]ssa.Instruction, funcSources source.ResultType) {
+	info := newRunInfo(pass, sinks, callPropagators, funcSources)
+
+	if s := info.String(pass); s != "" {
+		fmt.Println(s)
+	}
+}
+
+func newRunInfo(pass *analysis.Pass, sinks map[*ssa.Function][]ssa.Instruction, callPropagators map[*ssa.Function][]ssa.Instruction, funcSources source.ResultType) runInfo {
 	var intersection []*ssa.Function
+	var sinkButNoProp []*ssa.Function
 	for fn, _ := range sinks {
 		if _, ok := callPropagators[fn]; ok {
 			intersection = append(intersection, fn)
+		} else {
+			sinkButNoProp = append(sinkButNoProp, fn)
 		}
 	}
-	info := runInfo{
-		pkg:      pass.Pkg,
-		srcs:     len(funcSources),
-		sinks:    len(sinks),
-		callprop: len(callPropagators),
-		intersec: len(intersection),
-	}
 
-	if s := info.String(); s != "" {
-		fmt.Println(s)
+	info := runInfo{
+		pkg:           pass.Pkg,
+		srcs:          funcSources,
+		sinks:         sinks,
+		callprop:      callPropagators,
+		intersec:      intersection,
+		sinkButNoProp: sinkButNoProp,
 	}
+	return info
 }
 
 // identifySinks returns a map of function to sink calls within that function,
